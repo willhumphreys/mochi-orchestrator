@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/mochi-orchestrator.iml" filepath="$PROJECT_DIR$/mochi-orchestrator.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/mochi-orchestrator.iml" filepath="$PROJECT_DIR$/.idea/mochi-orchestrator.iml" />
     </modules>
   </component>
 </project>
