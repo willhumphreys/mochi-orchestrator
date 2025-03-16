@@ -1,4 +1,7 @@
 import json
+import os
+
+import boto3
 
 
 def handler(event, context):
@@ -7,6 +10,15 @@ def handler(event, context):
     """
     # Log the received event
     print('Received event:', json.dumps(event))
+
+
+    # Get bucket names from environment variables
+    input_bucket = os.environ.get('INPUT_BUCKET_NAME')
+    output_bucket = os.environ.get('OUTPUT_BUCKET_NAME')
+
+    # Initialize S3 client
+    s3 = boto3.client('s3')
+
 
     # Extract ticker from the event
     try:

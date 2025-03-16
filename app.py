@@ -1,13 +1,26 @@
 #!/usr/bin/env python3
 import os
-from aws_cdk import App, Fn
-from mochi_orchestrator.ecr_and_git_hub_deployment_stacks import (
-    EcrStack,
-    GitHubStack,
-    GitHubOIDCProviderStack
-)
+
+from aws_cdk import App, Tags, Fn
+
+from mochi_orchestrator.ecr_and_git_hub_deployment_stacks import EcrStack, GitHubOIDCProviderStack, GitHubStack
+# Updated imports using the new structure
+from mochi_orchestrator.stateful.storage_stack import MochiStorageStack
+from mochi_orchestrator.stateless.compute_stack import MochiComputeStack
 
 app = App()
+
+# Create storage stack first
+storage_stack = MochiStorageStack(app, "MochiStorageStack")
+
+# Create compute stack and pass only the bucket names
+compute_stack = MochiComputeStack(
+    app,
+    "MochiComputeStack",
+    input_bucket_name="mochi-prod-raw-historical-data",  # Hardcoded value
+    output_bucket_name="mochi-prod-prepared-historical-data"  # Hardcoded value
+)
+
 
 # Create ECR stack
 ecr_stack = EcrStack(app, "EcrStack")
@@ -52,5 +65,9 @@ trading_assistant_github_stack = GitHubStack(
     deploy_role_name="TradingAssistantGitHubDeployRole"  # Give each role a unique name
 )
 trading_assistant_github_stack.add_dependency(oidc_provider_stack)  # Ensure the provider exists first
+
+
+# Add common tags to all resources
+Tags.of(app).add("Project", "Mochi")
 
 app.synth()

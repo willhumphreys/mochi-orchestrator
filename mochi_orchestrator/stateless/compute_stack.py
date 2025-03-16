@@ -4,14 +4,18 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_iam as iam,
     aws_apigateway as apigateway,
-    CfnOutput
+    CfnOutput,
+    aws_s3 as s3
 )
 from constructs import Construct
-from .mochi_batch_resources import MochiBatchResources
+from .batch_resources import MochiBatchResources
 
 
-class MochiOrchestratorStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+class MochiComputeStack(Stack):
+    def __init__(self, scope: Construct, construct_id: str,
+                 input_bucket_name: str = None,
+                 output_bucket_name: str = None,
+                 **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Create Lambda function
@@ -21,7 +25,27 @@ class MochiOrchestratorStack(Stack):
             handler="lambda.handler",
             code=_lambda.Code.from_asset("lambda"),
             timeout=Duration.minutes(1),
+            environment={
+                # Pass bucket names as environment variables
+                "INPUT_BUCKET_NAME": input_bucket_name or "",
+                "OUTPUT_BUCKET_NAME": output_bucket_name or ""
+            }
         )
+
+        # Grant bucket permissions without direct stack reference
+        if input_bucket_name:
+            input_bucket = s3.Bucket.from_bucket_name(
+                self, "ImportedInputBucket", input_bucket_name
+            )
+            input_bucket.grant_read(lambda_function)
+
+        if output_bucket_name:
+            output_bucket = s3.Bucket.from_bucket_name(
+                self, "ImportedOutputBucket", output_bucket_name
+            )
+            output_bucket.grant_read_write(lambda_function)
+
+
 
         # Create API Gateway
         api = apigateway.RestApi(

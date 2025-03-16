@@ -1,58 +1,52 @@
+# Mochi Orchestrator
 
-# Welcome to your CDK Python project!
+This project contains the infrastructure code for the Mochi data processing platform.
 
-This is a blank project for CDK development with Python.
+## Stack Organization
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+The project is organized into two types of stacks:
 
-This project is set up like a standard Python project.  The initialization
-process also creates a virtualenv within this project, stored under the `.venv`
-directory.  To create the virtualenv it assumes that there is a `python3`
-(or `python` for Windows) executable in your path with access to the `venv`
-package. If for any reason the automatic creation of the virtualenv fails,
-you can create the virtualenv manually.
+### Stateful Stacks
+Located in `mochi_orchestrator/stateful/`
 
-To manually create a virtualenv on MacOS and Linux:
+These stacks contain resources that maintain persistent data. **DO NOT DELETE** these stacks without careful consideration and data migration planning.
 
+Current stateful stacks:
+- `MochiStorageStack`: Contains S3 buckets for input data and analysis results
+
+### Stateless Stacks
+Located in `mochi_orchestrator/stateless/`
+
+These stacks contain compute and processing resources with no persistent data. These stacks can be safely destroyed and recreated as needed.
+
+Current stateless stacks:
+- `MochiComputeStack`: Contains Lambda functions, API Gateway, and AWS Batch resources
+
+## Deployment Commands
+
+
+# Deploy all stacks
+```bash
+cdk deploy --all
+````
+
+# Deploy only stateful resources
+```bash
+cdk deploy MochiStorageStack
+````
+
+# Deploy only stateless resources
+```bash
+cdk deploy MochiComputeStack
+````
+
+# Destroy stateless resources (SAFE)
+```bash
+cdk destroy MochiComputeStack
+````
+
+# Destroy stateful resources (CAUTION!)
+# Consider backing up data first
+```bash
+cdk destroy MochiStorageStack
 ```
-$ python3 -m venv .venv
-```
-
-After the init process completes and the virtualenv is created, you can use the following
-step to activate your virtualenv.
-
-```
-$ source .venv/bin/activate
-```
-
-If you are a Windows platform, you would activate the virtualenv like this:
-
-```
-% .venv\Scripts\activate.bat
-```
-
-Once the virtualenv is activated, you can install the required dependencies.
-
-```
-$ pip install -r requirements.txt
-```
-
-At this point you can now synthesize the CloudFormation template for this code.
-
-```
-$ cdk synth
-```
-
-To add additional dependencies, for example other CDK libraries, just add
-them to your `setup.py` file and rerun the `pip install -r requirements.txt`
-command.
-
-## Useful commands
-
- * `cdk ls`          list all stacks in the app
- * `cdk synth`       emits the synthesized CloudFormation template
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk docs`        open CDK documentation
-
-Enjoy!

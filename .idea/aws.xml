@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="accountSettings">
-    <option name="activeProfile" value="profile:AdministratorAccess-739275456034" />
+    <option name="activeProfile" value="profile:mochi-739275456034-AdministratorAccess" />
     <option name="activeRegion" value="eu-central-1" />
     <option name="recentlyUsedProfiles">
       <list>
+        <option value="profile:mochi-739275456034-AdministratorAccess" />
         <option value="profile:AdministratorAccess-739275456034" />
         <option value="profile:will-trading-assistant-172829043653-AdministratorAccess" />
         <option value="profile:AdministratorAccess-573591465159" />
@@ -19,6 +20,9 @@
     </option>
   </component>
   <component name="connectionManager">
-    <option name="activeConnectionId" value="sso-session:mochi" />
+    <option name="activeConnectionId" value="AwsConnectionManagerConnection" />
+  </component>
+  <component name="explorerToolWindow">
+    <option name="selectedTab" value="Explorer" />
   </component>
 </project>
