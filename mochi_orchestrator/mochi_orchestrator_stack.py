@@ -7,6 +7,7 @@ from aws_cdk import (
     CfnOutput
 )
 from constructs import Construct
+from .mochi_batch_resources import MochiBatchResources
 
 
 class MochiOrchestratorStack(Stack):
@@ -32,9 +33,9 @@ class MochiOrchestratorStack(Stack):
         # Create resource and method
         backtest_resource = api.root.add_resource("backtest")
 
-        # Use the lambda function directly (this is the correct way)
+        # Use the lambda function directly
         lambda_integration = apigateway.LambdaIntegration(
-            lambda_function,  # Direct reference to the Lambda function
+            lambda_function,
             proxy=True,
         )
 
@@ -53,4 +54,31 @@ class MochiOrchestratorStack(Stack):
             self, "ApiEndpoint",
             value=f"{api.url}backtest",
             description="URL for triggering the backtest process"
+        )
+
+        # Create Batch resources
+        batch_resources = MochiBatchResources(
+            self,
+            "MochiBatchResources",
+            max_vcpus=4,
+            compute_env_name="MochiFargate",
+            job_queue_name="fargateSpotTrades",
+            tags={
+                "Project": "Mochi",
+                "Environment": "QA"
+            }
+        )
+
+        # Output Batch resource ARNs using property methods for consistency
+        CfnOutput(
+            self,
+            "BatchComputeEnvironmentArn",
+            value=batch_resources.compute_environment_arn,
+            description="ARN of the AWS Batch Compute Environment"
+        )
+
+        CfnOutput(
+            self, "BatchJobQueueArn",
+            value=batch_resources.job_queue_arn,
+            description="ARN of the AWS Batch Job Queue"
         )
