@@ -28,8 +28,6 @@ class MochiComputeStack(Stack):
             code=_lambda.Code.from_asset("lambda"),
             timeout=Duration.minutes(1),
             environment={
-                # Pass bucket names as environment variables
-                "INPUT_BUCKET_NAME": input_bucket_name or "",
                 "OUTPUT_BUCKET_NAME": output_bucket_name or "",
                 "POLYGON_API_KEY": os.environ.get("POLYGON_API_KEY", "")
 

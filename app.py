@@ -17,8 +17,7 @@ storage_stack = MochiStorageStack(app, "MochiStorageStack")
 compute_stack = MochiComputeStack(
     app,
     "MochiComputeStack",
-    input_bucket_name="mochi-prod-raw-historical-data",  # Hardcoded value
-    output_bucket_name="mochi-prod-prepared-historical-data"  # Hardcoded value
+    output_bucket_name="mochi-prod-raw-historical-data"  # Hardcoded value
 )
 
 

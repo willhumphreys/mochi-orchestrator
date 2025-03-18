@@ -33,10 +33,6 @@ def handler(event, context):
                         "value": os.environ.get('POLYGON_API_KEY')
                     },
                     {
-                        'name': 'INPUT_BUCKET_NAME',
-                        'value': os.environ.get('INPUT_BUCKET_NAME')
-                    },
-                    {
                         'name': 'OUTPUT_BUCKET_NAME',
                         'value': os.environ.get('OUTPUT_BUCKET_NAME')
                     }
