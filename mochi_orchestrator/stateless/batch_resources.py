@@ -87,6 +87,13 @@ class MochiBatchResources(Construct):
         # Define job definitions
         job_definitions_config = [
             {
+                "name": "polygon-extract",
+                "image": "ghcr.io/willhumphreys/polygon:latest",
+                "vcpu": 1.0,
+                "memory": 2048,
+                "timeout_seconds": 600,
+            },
+            {
                 "name": "mochi-graphs",
                 "image": "172829043653.dkr.ecr.us-east-1.amazonaws.com/mochi-r:latest",
                 "vcpu": 4.0,
@@ -144,17 +151,10 @@ class MochiBatchResources(Construct):
             self, "BatchJobRole",
             assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
             managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonS3ReadOnlyAccess")
+                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonS3FullAccess")
             ]
+
         )
-
-        # Add any additional permissions your jobs need
-        job_role.add_to_policy(iam.PolicyStatement(
-            actions=["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
-            resources=["*"]  # Limit to specific buckets in production
-        ))
-
-
 
         # Create all job definitions using the configurations
         self.job_definitions = {}

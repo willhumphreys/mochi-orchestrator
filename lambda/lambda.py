@@ -1,62 +1,105 @@
 import json
 import os
-
 import boto3
 
 
 def handler(event, context):
     """
-    Lambda function that returns the ticker argument passed to it.
+    Lambda function that submits a Batch job with the ticker argument.
     """
-    # Log the received event
-    print('Received event:', json.dumps(event))
-
-
-    # Get bucket names from environment variables
-    input_bucket = os.environ.get('INPUT_BUCKET_NAME')
-    output_bucket = os.environ.get('OUTPUT_BUCKET_NAME')
-
-    # Initialize S3 client
-    s3 = boto3.client('s3')
-
-
-    # Extract ticker from the event
     try:
-        # First try to get from JSON body (for API Gateway proxy integration)
-        if 'body' in event and event['body'] is not None:
-            try:
-                # The body might be a string that needs parsing
-                if isinstance(event['body'], str):
-                    body = json.loads(event['body'])
-                else:
-                    body = event['body']
-                ticker = body.get('ticker', 'No ticker provided')
-            except json.JSONDecodeError as e:
-                print(f"Error parsing JSON body: {str(e)}")
-                print(f"Body content: {event['body']}")
-                ticker = 'Error parsing JSON body'
-        # If not found in body, check queryStringParameters
-        elif 'queryStringParameters' in event and event['queryStringParameters'] is not None:
-            ticker = event['queryStringParameters'].get('ticker', 'No ticker provided')
-        # If not found in query parameters, check direct event
-        else:
-            ticker = event.get('ticker', 'No ticker provided')
+        # Log the received event
+        print('Received event:', json.dumps(event))
+
+        # Extract ticker from the event
+        ticker = extract_ticker_from_event(event)
+
+        # Initialize Batch client
+        batch_client = boto3.client('batch')
+
+        # Submit job to AWS Batch
+        response = batch_client.submit_job(
+            jobName='polygon-job',
+            jobQueue='fargateSpotTrades',
+            jobDefinition='polygon-extract',
+            parameters={
+                'ticker': ticker  # This is used for parameter substitution in the job definition
+            },
+            containerOverrides={
+                'command': ["python", "src/main.py", "--tickers", ticker],
+                'environment': [
+                    {
+                        "name": "POLYGON_API_KEY",
+                        "value": os.environ.get('POLYGON_API_KEY')
+                    },
+                    {
+                        'name': 'INPUT_BUCKET_NAME',
+                        'value': os.environ.get('INPUT_BUCKET_NAME')
+                    },
+                    {
+                        'name': 'OUTPUT_BUCKET_NAME',
+                        'value': os.environ.get('OUTPUT_BUCKET_NAME')
+                    }
+                ]
+            }
+        )
+
+        # Return success response
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'  # Enable CORS
+            },
+            'body': json.dumps({
+                'message': f'Submitted batch job for ticker: {ticker}',
+                'ticker': ticker,
+                'jobId': response['jobId'],
+                'input': event
+            })
+        }
+
     except Exception as e:
-        print(f'Error extracting ticker: {str(e)}')
-        ticker = f'Error extracting ticker: {str(e)}'
+        # Log the error
+        print(f'Error in Lambda execution: {str(e)}')
 
-    # Prepare the response
-    response = {
-        'statusCode': 200,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'  # Enable CORS
-        },
-        'body': json.dumps({
-            'message': f'Processing ticker: {ticker}',
-            'ticker': ticker,
-            'input': event
-        })
-    }
+        # Return error response
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'  # Enable CORS
+            },
+            'body': json.dumps({
+                'message': 'Failed to process request',
+                'error': str(e)
+            })
+        }
 
-    return response
+
+def extract_ticker_from_event(event):
+    """Helper function to extract ticker from different event formats."""
+    # Check for ticker in JSON body (for API Gateway proxy integration)
+    if 'body' in event and event['body'] is not None:
+        # The body might be a string that needs parsing
+        if isinstance(event['body'], str):
+            body = json.loads(event['body'])
+        else:
+            body = event['body']
+        ticker = body.get('ticker')
+        if ticker:
+            return ticker
+
+    # If not found in body, check queryStringParameters
+    if 'queryStringParameters' in event and event['queryStringParameters'] is not None:
+        ticker = event['queryStringParameters'].get('ticker')
+        if ticker:
+            return ticker
+
+    # If not found in query parameters, check direct event
+    ticker = event.get('ticker')
+    if ticker:
+        return ticker
+
+    # If ticker not found anywhere, raise exception
+    raise ValueError("No ticker provided in the request")

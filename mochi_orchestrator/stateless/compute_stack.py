@@ -1,3 +1,5 @@
+import os
+
 from aws_cdk import (
     Stack,
     Duration,
@@ -28,9 +30,22 @@ class MochiComputeStack(Stack):
             environment={
                 # Pass bucket names as environment variables
                 "INPUT_BUCKET_NAME": input_bucket_name or "",
-                "OUTPUT_BUCKET_NAME": output_bucket_name or ""
+                "OUTPUT_BUCKET_NAME": output_bucket_name or "",
+                "POLYGON_API_KEY": os.environ.get("POLYGON_API_KEY", "")
+
+
             }
         )
+
+        lambda_function.add_to_role_policy(iam.PolicyStatement(
+            actions=[
+                "batch:SubmitJob",
+                "batch:DescribeJobs",
+                "batch:TerminateJob"
+            ],
+            resources=["*"]  # You can restrict this to specific Batch resources if needed
+        ))
+
 
         # Grant bucket permissions without direct stack reference
         if input_bucket_name:
