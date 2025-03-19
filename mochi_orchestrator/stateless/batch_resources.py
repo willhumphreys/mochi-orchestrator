@@ -94,6 +94,13 @@ class MochiBatchResources(Construct):
                 "timeout_seconds": 600,
             },
             {
+                "name": "tick-data-enhancer",
+                "image": "ghcr.io/willhumphreys/tick-data-enhancer:latest",
+                "vcpu": 1.0,
+                "memory": 2048,
+                "timeout_seconds": 600,
+            },
+            {
                 "name": "mochi-graphs",
                 "image": "172829043653.dkr.ecr.us-east-1.amazonaws.com/mochi-r:latest",
                 "vcpu": 4.0,

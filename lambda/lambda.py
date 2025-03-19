@@ -18,6 +18,7 @@ def handler(event, context):
         batch_client = boto3.client('batch')
 
         # Submit job to AWS Batch
+        # Submit job to AWS Batch
         response = batch_client.submit_job(
             jobName='polygon-job',
             jobQueue='fargateSpotTrades',
@@ -40,7 +41,39 @@ def handler(event, context):
             }
         )
 
-        # Return success response
+        # Store the job ID from the first job
+        first_job_id = response['jobId']
+
+        # Submit dependent job that processes the data further
+        enhancer_response = batch_client.submit_job(
+            jobName='enhance-data-job',
+            jobQueue='fargateSpotTrades',
+            jobDefinition='tick-data-enhancer',
+            parameters={
+                'ticker': ticker  # Pass the same ticker to the enhancer job
+            },
+            containerOverrides={
+                'command': ["python", "src/enhancer.py", "--ticker", ticker, "--provider", "polygon"],
+                'environment': [
+                    {
+                        'name': 'INPUT_BUCKET_NAME',
+                        'value': os.environ.get('INPUT_BUCKET_NAME')
+                    },
+                    {
+                        'name': 'OUTPUT_BUCKET_NAME',
+                        'value': os.environ.get('OUTPUT_BUCKET_NAME')
+                    }
+                ]
+            },
+            # Make this job dependent on the first job
+            dependsOn=[
+                {
+                    'jobId': first_job_id
+                }
+            ]
+        )
+
+        # Include the enhancer job ID in the response
         return {
             'statusCode': 200,
             'headers': {
@@ -48,29 +81,31 @@ def handler(event, context):
                 'Access-Control-Allow-Origin': '*'  # Enable CORS
             },
             'body': json.dumps({
-                'message': f'Submitted batch job for ticker: {ticker}',
+                'message': f'Submitted batch jobs for ticker: {ticker}',
                 'ticker': ticker,
-                'jobId': response['jobId'],
+                'polygonJobId': response['jobId'],
+                'enhancerJobId': enhancer_response['jobId'],
                 'input': event
             })
         }
 
-    except Exception as e:
-        # Log the error
-        print(f'Error in Lambda execution: {str(e)}')
 
-        # Return error response
-        return {
-            'statusCode': 500,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'  # Enable CORS
-            },
-            'body': json.dumps({
-                'message': 'Failed to process request',
-                'error': str(e)
-            })
-        }
+    except Exception as e:
+            # Log the error
+            print(f'Error in Lambda execution: {str(e)}')
+
+            # Return error response
+            return {
+                'statusCode': 500,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'  # Enable CORS
+                },
+                'body': json.dumps({
+                    'message': 'Failed to process request',
+                    'error': str(e)
+                })
+            }
 
 
 def extract_ticker_from_event(event):
