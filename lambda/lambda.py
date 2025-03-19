@@ -48,7 +48,7 @@ def handler(event, context):
         enhancer_response = batch_client.submit_job(
             jobName='enhance-data-job',
             jobQueue='fargateSpotTrades',
-            jobDefinition='tick-data-enhancer',
+            jobDefinition='trade-data-enhancer',
             parameters={
                 'ticker': ticker  # Pass the same ticker to the enhancer job
             },
