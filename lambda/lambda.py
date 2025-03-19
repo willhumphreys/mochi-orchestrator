@@ -35,7 +35,7 @@ def handler(event, context):
                     },
                     {
                         'name': 'OUTPUT_BUCKET_NAME',
-                        'value': os.environ.get('OUTPUT_BUCKET_NAME')
+                        'value': os.environ.get('RAW_BUCKET_NAME')
                     }
                 ]
             }
@@ -57,11 +57,11 @@ def handler(event, context):
                 'environment': [
                     {
                         'name': 'INPUT_BUCKET_NAME',
-                        'value': os.environ.get('INPUT_BUCKET_NAME')
+                        'value': os.environ.get('RAW_BUCKET_NAME')
                     },
                     {
                         'name': 'OUTPUT_BUCKET_NAME',
-                        'value': os.environ.get('OUTPUT_BUCKET_NAME')
+                        'value': os.environ.get('PREPARED_BUCKET_NAME')
                     }
                 ]
             },

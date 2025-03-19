@@ -15,8 +15,8 @@ from .batch_resources import MochiBatchResources
 
 class MochiComputeStack(Stack):
     def __init__(self, scope: Construct, construct_id: str,
-                 input_bucket_name: str = None,
-                 output_bucket_name: str = None,
+                 raw_bucket_name: str = None,
+                 prepared_bucket_name: str = None,
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -28,7 +28,8 @@ class MochiComputeStack(Stack):
             code=_lambda.Code.from_asset("lambda"),
             timeout=Duration.minutes(1),
             environment={
-                "OUTPUT_BUCKET_NAME": output_bucket_name or "",
+                "RAW_BUCKET_NAME": raw_bucket_name or "",
+                "PREPARED_BUCKET_NAME": prepared_bucket_name or "",
                 "POLYGON_API_KEY": os.environ.get("POLYGON_API_KEY", "")
 
 
@@ -46,17 +47,17 @@ class MochiComputeStack(Stack):
 
 
         # Grant bucket permissions without direct stack reference
-        if input_bucket_name:
-            input_bucket = s3.Bucket.from_bucket_name(
-                self, "ImportedInputBucket", input_bucket_name
+        if raw_bucket_name:
+            raw_bucket = s3.Bucket.from_bucket_name(
+                self, "ImportedInputBucket", raw_bucket_name
             )
-            input_bucket.grant_read(lambda_function)
+            raw_bucket.grant_read(lambda_function)
 
-        if output_bucket_name:
-            output_bucket = s3.Bucket.from_bucket_name(
-                self, "ImportedOutputBucket", output_bucket_name
+        if prepared_bucket_name:
+            prepared_bucket = s3.Bucket.from_bucket_name(
+                self, "ImportedOutputBucket", prepared_bucket_name
             )
-            output_bucket.grant_read_write(lambda_function)
+            prepared_bucket.grant_read_write(lambda_function)
 
 
 
