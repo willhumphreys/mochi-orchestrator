@@ -1,136 +1,329 @@
 import json
-import os
 import boto3
+import random
+import datetime
+import os
 
 
 def handler(event, context):
     """
-    Lambda function that submits a Batch job with the ticker argument.
+    Lambda function handler that processes market data and submits a chain of batch jobs.
+    All jobs use a common group_tag for better tracking and organization.
     """
-    try:
-        # Log the received event
-        print('Received event:', json.dumps(event))
+    print("Received event:", json.dumps(event))
 
-        # Extract ticker from the event
-        ticker = extract_ticker_from_event(event)
+    # Initialize boto3 client
+    batch_client = boto3.client('batch')
 
-        # Initialize Batch client
-        batch_client = boto3.client('batch')
+    # Easy-to-remember random words for group tagging
+    easy_words = [
+        "apple", "banana", "cherry", "dragonfruit", "elderberry", "fig", "grape",
+        "honeydew", "kiwi", "lemon", "mango", "nectarine", "orange", "papaya",
+        "quince", "raspberry", "strawberry", "tangerine", "ugli", "vanilla",
+        "watermelon", "xigua", "yam", "zucchini"
+    ]
 
-        # Submit job to AWS Batch
-        # Submit job to AWS Batch
-        response = batch_client.submit_job(
-            jobName='polygon-job',
-            jobQueue='fargateSpotTrades',
-            jobDefinition='polygon-extract',
-            parameters={
-                'ticker': ticker  # This is used for parameter substitution in the job definition
-            },
-            containerOverrides={
-                'command': ["python", "src/main.py", "--tickers", ticker],
-                'environment': [
-                    {
-                        "name": "POLYGON_API_KEY",
-                        "value": os.environ.get('POLYGON_API_KEY')
-                    },
-                    {
-                        'name': 'OUTPUT_BUCKET_NAME',
-                        'value': os.environ.get('RAW_BUCKET_NAME')
-                    }
-                ]
-            }
-        )
+    # Generate a random group tag for all jobs in this execution
+    group_tag = random.choice(easy_words)
+    print(f"Using group tag: {group_tag} for all jobs in this execution")
 
-        # Store the job ID from the first job
-        first_job_id = response['jobId']
+    # Extract ticker from event
+    ticker = extract_ticker_from_event(event)
+    print(f"Processing ticker: {ticker}")
 
-        # Submit dependent job that processes the data further
-        enhancer_response = batch_client.submit_job(
-            jobName='enhance-data-job',
-            jobQueue='fargateSpotTrades',
-            jobDefinition='trade-data-enhancer',
-            parameters={
-                'ticker': ticker  # Pass the same ticker to the enhancer job
-            },
-            containerOverrides={
-                'command': ["python", "src/enhancer.py", "--ticker", ticker, "--provider", "polygon"],
-                'environment': [
-                    {
-                        'name': 'INPUT_BUCKET_NAME',
-                        'value': os.environ.get('RAW_BUCKET_NAME')
-                    },
-                    {
-                        'name': 'OUTPUT_BUCKET_NAME',
-                        'value': os.environ.get('PREPARED_BUCKET_NAME')
-                    }
-                ]
-            },
-            # Make this job dependent on the first job
-            dependsOn=[
+    # Common job queue
+    queue_name = "fargateSpotTrades"
+    print(f"Using queue: {queue_name}")
+
+    # Step 1: Submit the polygon job (first in the chain)
+    polygon_job_name = f"polygon-job-{ticker}"
+    print(f"Submitting polygon job: {polygon_job_name}")
+
+    polygon_response = batch_client.submit_job(
+        jobName=polygon_job_name,
+        jobQueue=queue_name,
+        jobDefinition='polygon-extract:latest',
+        parameters={
+            'ticker': ticker  # This is used for parameter substitution in the job definition
+        },
+        containerOverrides={
+            'command': ["python", "src/main.py", "--tickers", ticker],
+            'environment': [
                 {
-                    'jobId': first_job_id
+                    "name": "POLYGON_API_KEY",
+                    "value": os.environ.get('POLYGON_API_KEY')
+                },
+                {
+                    'name': 'OUTPUT_BUCKET_NAME',
+                    'value': os.environ.get('RAW_BUCKET_NAME')
                 }
             ]
+        },
+        tags={
+            "Ticker": ticker,
+            "SubmissionGroupTag": group_tag,
+            "TaskType": "polygon-extract"
+        }
+    )
+
+    polygon_job_id = polygon_response['jobId']
+    print(f"Submitted polygon job with ID: {polygon_job_id}")
+
+    # Step 2: Submit the enhance-data job (dependent on polygon job)
+    enhance_job_name = f"enhance-data-{ticker}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+    print(f"Submitting enhance-data job: {enhance_job_name}")
+
+    enhance_response = batch_client.submit_job(
+        jobName=enhance_job_name,
+        jobQueue=queue_name,
+        jobDefinition="enhance-data:latest",
+        dependsOn=[{'jobId': polygon_job_id}],
+
+        containerOverrides={
+            'command': ["python", "src/enhancer.py", "--ticker", ticker, "--provider", "polygon"],
+            'environment': [
+                {
+                    'name': 'INPUT_BUCKET_NAME',
+                    'value': os.environ.get('RAW_BUCKET_NAME')
+                },
+                {
+                    'name': 'OUTPUT_BUCKET_NAME',
+                    'value': os.environ.get('PREPARED_BUCKET_NAME')
+                }
+            ]
+        },
+        tags={
+            "Ticker": ticker,
+            "SubmissionGroupTag": group_tag,
+            "TaskType": "enhance-data"
+        }
+    )
+
+    enhance_job_id = enhance_response['jobId']
+    print(f"Submitted enhance-data job with ID: {enhance_job_id}")
+
+    # Step 3: Submit trading jobs (dependent on enhance-data job)
+    # Single hardcoded scenario
+    scenario_template = 's_-3000..-100..400___l_100..7500..400___o_-800..800..100___d_14..14..7___out_8..8..4'
+
+    # Format ticker for scenario
+    symbol_file = f"{ticker}-1mF.csv"
+    base_symbol = ticker
+
+    # Build the full scenario string
+    full_scenario = f"{scenario_template}___{symbol_file}"
+
+    # Determine trade type
+    trade_type = "long"  # Default to long since our scenario doesn't have "short"
+
+    # Generate job names
+    trades_job_name = f"Trades{ticker}"
+    aggregate_job_name = f"Aggregate{ticker}"
+    graphs_job_name = f"Graphs{ticker}"
+
+    print(f"Submitting job with name: {trades_job_name} with scenario: {full_scenario}")
+
+    # Submit the trades job (dependent on enhance-data-job)
+    trades_response = batch_client.submit_job(
+        jobName=trades_job_name,
+        jobQueue=queue_name,
+        jobDefinition="mochi-trades:latest",
+        dependsOn=[{'jobId': enhance_job_id}],
+        containerOverrides={
+            "command": [
+                "-scenario",
+                full_scenario,
+                "-output_dir",
+                "results",
+                "-write_trades",
+                "-upload_to_s3"
+            ]
+        },
+        tags={
+            "Scenario": full_scenario,
+            "Symbol": symbol_file,
+            "SubmissionGroupTag": group_tag,
+            "TradeType": trade_type,
+            "TaskType": "trade"
+        }
+    )
+
+    trades_job_id = trades_response['jobId']
+    print(f"Submitted trades job with ID: {trades_job_id}")
+
+    # Submit aggregation job
+    print(f"Submitting aggregation job with name: {aggregate_job_name} with scenario: {full_scenario}")
+    agg_response = batch_client.submit_job(
+        jobName=aggregate_job_name,
+        dependsOn=[{'jobId': trades_job_id}],
+        jobQueue=queue_name,
+        jobDefinition="mochi-trades:latest",
+        containerOverrides={
+            "command": [
+                "-scenario",
+                full_scenario,
+                "-output_dir",
+                "results",
+                "-upload_to_s3",
+                "-aggregate"
+            ]
+        },
+        tags={
+            "Scenario": full_scenario,
+            "Symbol": symbol_file,
+            "SubmissionGroupTag": group_tag,
+            "TradeType": trade_type,
+            "TaskType": "aggregation"
+        }
+    )
+
+    agg_job_id = agg_response['jobId']
+    print(f"Submitted aggregation job with ID: {agg_job_id}")
+
+    # Submit graph jobs
+    best_traders_job_id = None
+
+    for script in ["years.r", "stops.r", "bestTraders.r"]:
+        job_name = f"{graphs_job_name}{script.split('.')[0]}"
+        just_scenario = full_scenario.rsplit('___', 1)[0]
+        scenario_value = f"{base_symbol}/{just_scenario}/aggregated-{base_symbol}_{just_scenario}_aggregationQueryTemplate-all.csv.lzo"
+
+        print(f"Submitting graph job with name: {job_name} with scenario: {scenario_value}")
+        graph_response = batch_client.submit_job(
+            jobName=job_name,
+            dependsOn=[{'jobId': agg_job_id}],
+            jobQueue=queue_name,
+            jobDefinition="r-graphs:latest",
+            containerOverrides={
+                "command": [
+                    scenario_value, script
+                ]
+            },
+            tags={
+                "Scenario": just_scenario,
+                "Symbol": base_symbol,
+                "SubmissionGroupTag": group_tag,
+                "TradeType": trade_type,
+                "TaskType": "graph"
+            }
         )
 
-        # Include the enhancer job ID in the response
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'  # Enable CORS
-            },
-            'body': json.dumps({
-                'message': f'Submitted batch jobs for ticker: {ticker}',
-                'ticker': ticker,
-                'polygonJobId': response['jobId'],
-                'enhancerJobId': enhancer_response['jobId'],
-                'input': event
-            })
+        if script == "bestTraders.r":
+            best_traders_job_id = graph_response['jobId']
+            print(f"Submitted bestTraders.r graph job with ID: {best_traders_job_id}")
+
+    # Submit trade-extract job
+    trade_extract_job_name = f"trade-extract-{base_symbol}"
+    print(f"Submitting trade-extract job with name: {trade_extract_job_name}")
+    trade_extract_response = batch_client.submit_job(
+        jobName=trade_extract_job_name,
+        jobQueue=queue_name,
+        jobDefinition="trade-extract:latest",
+        dependsOn=[{'jobId': best_traders_job_id}],
+        containerOverrides={
+            "command": [
+                "--symbol",
+                base_symbol,
+                "--scenario",
+                scenario_template
+            ]
+        },
+        tags={
+            "Scenario": scenario_template,
+            "Symbol": base_symbol,
+            "SubmissionGroupTag": group_tag,
+            "TaskType": "trade-extract"
         }
+    )
 
+    trade_extract_job_id = trade_extract_response['jobId']
+    print(f"Submitted trade-extract job with ID: {trade_extract_job_id}")
 
-    except Exception as e:
-            # Log the error
-            print(f'Error in Lambda execution: {str(e)}')
+    # Submit py-trade-lens job
+    py_trade_lens_job_name = f"py-trade-lens-{base_symbol}"
+    print(f"Submitting py-trade-lens job with name: {py_trade_lens_job_name}")
+    py_trade_lens_response = batch_client.submit_job(
+        jobName=py_trade_lens_job_name,
+        jobQueue=queue_name,
+        jobDefinition="py-trade-lens:latest",
+        dependsOn=[{'jobId': trade_extract_job_id}],
+        containerOverrides={
+            "command": [
+                "--symbol",
+                base_symbol,
+                "--scenario",
+                scenario_template
+            ]
+        },
+        tags={
+            "Scenario": scenario_template,
+            "Symbol": base_symbol,
+            "SubmissionGroupTag": group_tag,
+            "TaskType": "py-trade-lens"
+        }
+    )
 
-            # Return error response
-            return {
-                'statusCode': 500,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'  # Enable CORS
-                },
-                'body': json.dumps({
-                    'message': 'Failed to process request',
-                    'error': str(e)
-                })
-            }
+    py_trade_lens_job_id = py_trade_lens_response['jobId']
+    print(f"Submitted py-trade-lens job with ID: {py_trade_lens_job_id}")
+
+    # Submit trade-summary job
+    trade_summary_job_name = f"trade_summary-{base_symbol}"
+    print(f"Submitting trade-summary job with name: {trade_summary_job_name}")
+    trade_summary_response = batch_client.submit_job(
+        jobName=trade_summary_job_name,
+        jobQueue=queue_name,
+        jobDefinition="trade-summary:latest",
+        dependsOn=[{'jobId': py_trade_lens_job_id}],
+        containerOverrides={
+            "command": [
+                "--symbol",
+                base_symbol
+            ]
+        },
+        tags={
+            "Symbol": base_symbol,
+            "SubmissionGroupTag": group_tag,
+            "TaskType": "trade_summary"
+        }
+    )
+
+    print(f"Submitted trade-summary job with ID: {trade_summary_response['jobId']}")
+
+    # Return the results
+    return {
+        'statusCode': 200,
+        'body': json.dumps({
+            'message': f'Successfully submitted job chain for {ticker}',
+            'polygonJobId': polygon_job_id,
+            'enhanceJobId': enhance_job_id,
+            'tradesJobId': trades_job_id,
+            'groupTag': group_tag
+        })
+    }
 
 
 def extract_ticker_from_event(event):
-    """Helper function to extract ticker from different event formats."""
-    # Check for ticker in JSON body (for API Gateway proxy integration)
-    if 'body' in event and event['body'] is not None:
-        # The body might be a string that needs parsing
-        if isinstance(event['body'], str):
-            body = json.loads(event['body'])
-        else:
-            body = event['body']
-        ticker = body.get('ticker')
-        if ticker:
-            return ticker
+    """
+    Extracts the ticker symbol from the Lambda event.
 
-    # If not found in body, check queryStringParameters
-    if 'queryStringParameters' in event and event['queryStringParameters'] is not None:
-        ticker = event['queryStringParameters'].get('ticker')
-        if ticker:
-            return ticker
+    Args:
+        event: The Lambda event object
 
-    # If not found in query parameters, check direct event
-    ticker = event.get('ticker')
-    if ticker:
+    Returns:
+        str: The extracted ticker symbol
+    """
+    # This is a placeholder for your existing extract_ticker_from_event function
+    # Keep your existing implementation here
+
+    # Example implementation (replace with your actual implementation):
+    if 'ticker' in event:
+        return event['ticker']
+    elif 'Records' in event and len(event['Records']) > 0:
+        # Example S3 event handling
+        s3_info = event['Records'][0]['s3']
+        key = s3_info['object']['key']
+        # Extract ticker from key, e.g., "data/ES.csv" -> "ES"
+        ticker = key.split('/')[-1].split('.')[0]
         return ticker
-
-    # If ticker not found anywhere, raise exception
-    raise ValueError("No ticker provided in the request")
+    else:
+        raise ValueError("Could not extract ticker from event")
