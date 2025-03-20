@@ -137,6 +137,20 @@ def handler(event, context):
                 "results",
                 "-write_trades",
                 "-upload_to_s3"
+            ],
+            'environment': [
+                {
+                    'name': 'MOCHI_DATA_BUCKET',
+                    'value': os.environ.get('PREPARED_BUCKET_NAME')
+                },
+                {
+                    'name': 'MOCHI_TRADES_BUCKET',
+                    'value': os.environ.get('TRADES_BUCKET_NAME')
+                },
+                {
+                    'name': 'MOCHI_TRADERS_BUCKET',
+                    'value': os.environ.get('TRADER_BUCKET_NAME')
+                }
             ]
         },
         tags={
@@ -166,6 +180,29 @@ def handler(event, context):
                 "results",
                 "-upload_to_s3",
                 "-aggregate"
+            ],
+            'environment': [
+                {
+                    'name': 'MOCHI_DATA_BUCKET',
+                    'value': os.environ.get('PREPARED_BUCKET_NAME')
+                },
+                {
+                    'name': 'MOCHI_TRADES_BUCKET',
+                    'value': os.environ.get('TRADES_BUCKET_NAME')
+                },
+                {
+                    'name': 'MOCHI_TRADERS_BUCKET',
+                    'value': os.environ.get('TRADER_BUCKET_NAME')
+                },
+                {
+                    'name': 'MOCHI_AGGREGATION_BUCKET',
+                    'value': os.environ.get('MOCHI_AGGREGATION_BUCKET')
+                },
+                {
+                    'name': 'MOCHI_AGGREGATION_BUCKET_STAGING',
+                    'value': os.environ.get('MOCHI_AGGREGATION_BUCKET_STAGING')
+                }
+
             ]
         },
         tags={
@@ -197,6 +234,17 @@ def handler(event, context):
             containerOverrides={
                 "command": [
                     scenario_value, script
+                ],
+                'environment': [
+                    {
+                        'name': 'MOCHI_AGGREGATION_BUCKET',
+                        'value': os.environ.get('MOCHI_AGGREGATION_BUCKET')
+                    },
+                    {
+                        'name': 'MOCHI_GRAPHS_BUCKET',
+                        'value': os.environ.get('MOCHI_GRAPHS_BUCKET')
+                    }
+
                 ]
             },
             tags={
@@ -226,6 +274,21 @@ def handler(event, context):
                 base_symbol,
                 "--scenario",
                 scenario_template
+            ],
+            'environment': [
+                {
+                    'name': 'MOCHI_GRAPHS_BUCKET',
+                    'value': os.environ.get('MOCHI_GRAPHS_BUCKET')
+                },
+                {
+                    'name': 'MOCHI_TRADES_BUCKET',
+                    'value': os.environ.get('TRADES_BUCKET_NAME')
+                },
+                {
+                    'name': 'MOCHI_PROD_TRADE_EXTRACTS',
+                    'value': os.environ.get('MOCHI_PROD_TRADE_EXTRACTS')
+                }
+
             ]
         },
         tags={

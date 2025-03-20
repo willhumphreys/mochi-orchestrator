@@ -17,6 +17,14 @@ class MochiComputeStack(Stack):
     def __init__(self, scope: Construct, construct_id: str,
                  raw_bucket_name: str = None,
                  prepared_bucket_name: str = None,
+                 trades_bucket_name: str = None,
+                 traders_bucket_name: str = None,
+                 aggregation_bucket_name: str = None,
+                 staging_aggregation_bucket_name: str = None,
+                 mochi_graphs_bucket: str = None,
+                 mochi_prod_trade_extracts: str = None,
+                 mochi_prod_trade_performance_graphs: str = None,
+                 mochi_prod_final_trader_ranking: str = None,
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -30,8 +38,15 @@ class MochiComputeStack(Stack):
             environment={
                 "RAW_BUCKET_NAME": raw_bucket_name or "",
                 "PREPARED_BUCKET_NAME": prepared_bucket_name or "",
-                "POLYGON_API_KEY": os.environ.get("POLYGON_API_KEY", "")
-
+                "POLYGON_API_KEY": os.environ.get("POLYGON_API_KEY", ""),
+                "TRADES_BUCKET_NAME": trades_bucket_name or "",
+                "TRADER_BUCKET_NAME": traders_bucket_name or "",
+                "MOCHI_AGGREGATION_BUCKET_STAGING" : staging_aggregation_bucket_name or "",
+                "MOCHI_AGGREGATION_BUCKET" : aggregation_bucket_name or "",
+                "MOCHI_GRAPHS_BUCKET" : mochi_graphs_bucket or "",
+                "MOCHI_PROD_TRADE_EXTRACTS" : mochi_prod_trade_extracts or "",
+                "MOCHI_PROD_TRADE_PERFORMANCE_GRAPHS" : mochi_prod_trade_performance_graphs or "",
+                "MOCHI_PROD_FINAL_TRADER_RANKING" : mochi_prod_final_trader_ranking or "",
 
             }
         )

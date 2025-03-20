@@ -17,8 +17,16 @@ storage_stack = MochiStorageStack(app, "MochiStorageStack")
 compute_stack = MochiComputeStack(
     app,
     "MochiComputeStack",
-    raw_bucket_name="mochi-prod-raw-historical-data",  # Hardcoded value
-    prepared_bucket_name="mochi-prod-prepared-historical-data"  # Hardcoded value
+    raw_bucket_name="mochi-prod-raw-historical-data",
+    prepared_bucket_name="mochi-prod-prepared-historical-data",
+    trades_bucket_name="mochi-prod-backtest-trades",
+    traders_bucket_name="mochi-prod-backtest-traders",
+    aggregation_bucket_name="mochi-prod-aggregated-trades",
+    staging_aggregation_bucket_name="mochi-prod-athena-query-staging",
+    mochi_graphs_bucket="mochi-prod-summary-graphs",
+    mochi_prod_trade_extracts="mochi-prod-trade-extracts",
+    mochi_prod_trade_performance_graphs="mochi-prod-trade_performance_graphs",
+    mochi_prod_final_trader_ranking="mochi-prod-final-trader-ranking"
 )
 
 
