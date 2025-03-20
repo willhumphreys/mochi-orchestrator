@@ -69,14 +69,14 @@ def handler(event, context):
     polygon_job_id = polygon_response['jobId']
     print(f"Submitted polygon job with ID: {polygon_job_id}")
 
-    # Step 2: Submit the enhance-data job (dependent on polygon job)
-    enhance_job_name = f"enhance-data-{ticker}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
-    print(f"Submitting enhance-data job: {enhance_job_name}")
+    # Step 2: Submit the trade-data-enhancer job (dependent on polygon job)
+    enhance_job_name = f"trade-data-enhancer-{ticker}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+    print(f"Submitting trade-data-enhancer job: {enhance_job_name}")
 
     enhance_response = batch_client.submit_job(
         jobName=enhance_job_name,
         jobQueue=queue_name,
-        jobDefinition="enhance-data",
+        jobDefinition="trade-data-enhancer",
         dependsOn=[{'jobId': polygon_job_id}],
 
         containerOverrides={
@@ -95,14 +95,14 @@ def handler(event, context):
         tags={
             "Ticker": ticker,
             "SubmissionGroupTag": group_tag,
-            "TaskType": "enhance-data"
+            "TaskType": "trade-data-enhancer"
         }
     )
 
     enhance_job_id = enhance_response['jobId']
-    print(f"Submitted enhance-data job with ID: {enhance_job_id}")
+    print(f"Submitted trade-data-enhancer job with ID: {enhance_job_id}")
 
-    # Step 3: Submit trading jobs (dependent on enhance-data job)
+    # Step 3: Submit trading jobs (dependent on trade-data-enhancer job)
     # Single hardcoded scenario
     scenario_template = 's_-3000..-100..400___l_100..7500..400___o_-800..800..100___d_14..14..7___out_8..8..4'
 
@@ -123,7 +123,7 @@ def handler(event, context):
 
     print(f"Submitting job with name: {trades_job_name} with scenario: {full_scenario}")
 
-    # Submit the trades job (dependent on enhance-data-job)
+    # Submit the trades job (dependent on trade-data-enhancer-job)
     trades_response = batch_client.submit_job(
         jobName=trades_job_name,
         jobQueue=queue_name,
