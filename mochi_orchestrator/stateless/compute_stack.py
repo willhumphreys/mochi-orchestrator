@@ -55,7 +55,10 @@ class MochiComputeStack(Stack):
             actions=[
                 "batch:SubmitJob",
                 "batch:DescribeJobs",
-                "batch:TerminateJob"
+                "batch:TerminateJob",
+                "batch:TagResource",
+                "batch:UntagResource"
+
             ],
             resources=["*"]  # You can restrict this to specific Batch resources if needed
         ))

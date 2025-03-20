@@ -42,7 +42,7 @@ def handler(event, context):
     polygon_response = batch_client.submit_job(
         jobName=polygon_job_name,
         jobQueue=queue_name,
-        jobDefinition='polygon-extract:latest',
+        jobDefinition='polygon-extract',
         parameters={
             'ticker': ticker  # This is used for parameter substitution in the job definition
         },
@@ -76,7 +76,7 @@ def handler(event, context):
     enhance_response = batch_client.submit_job(
         jobName=enhance_job_name,
         jobQueue=queue_name,
-        jobDefinition="enhance-data:latest",
+        jobDefinition="enhance-data",
         dependsOn=[{'jobId': polygon_job_id}],
 
         containerOverrides={
@@ -127,7 +127,7 @@ def handler(event, context):
     trades_response = batch_client.submit_job(
         jobName=trades_job_name,
         jobQueue=queue_name,
-        jobDefinition="mochi-trades:latest",
+        jobDefinition="mochi-trades",
         dependsOn=[{'jobId': enhance_job_id}],
         containerOverrides={
             "command": [
@@ -171,7 +171,7 @@ def handler(event, context):
         jobName=aggregate_job_name,
         dependsOn=[{'jobId': trades_job_id}],
         jobQueue=queue_name,
-        jobDefinition="mochi-trades:latest",
+        jobDefinition="mochi-trades",
         containerOverrides={
             "command": [
                 "-scenario",
@@ -230,7 +230,7 @@ def handler(event, context):
             jobName=job_name,
             dependsOn=[{'jobId': agg_job_id}],
             jobQueue=queue_name,
-            jobDefinition="r-graphs:latest",
+            jobDefinition="r-graphs",
             containerOverrides={
                 "command": [
                     scenario_value, script
@@ -266,7 +266,7 @@ def handler(event, context):
     trade_extract_response = batch_client.submit_job(
         jobName=trade_extract_job_name,
         jobQueue=queue_name,
-        jobDefinition="trade-extract:latest",
+        jobDefinition="trade-extract",
         dependsOn=[{'jobId': best_traders_job_id}],
         containerOverrides={
             "command": [
@@ -308,7 +308,7 @@ def handler(event, context):
     py_trade_lens_response = batch_client.submit_job(
         jobName=py_trade_lens_job_name,
         jobQueue=queue_name,
-        jobDefinition="py-trade-lens:latest",
+        jobDefinition="py-trade-lens",
         dependsOn=[{'jobId': trade_extract_job_id}],
         containerOverrides={
             "command": [
@@ -335,7 +335,7 @@ def handler(event, context):
     trade_summary_response = batch_client.submit_job(
         jobName=trade_summary_job_name,
         jobQueue=queue_name,
-        jobDefinition="trade-summary:latest",
+        jobDefinition="trade-summary",
         dependsOn=[{'jobId': py_trade_lens_job_id}],
         containerOverrides={
             "command": [
