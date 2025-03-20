@@ -366,27 +366,39 @@ def handler(event, context):
 
 
 def extract_ticker_from_event(event):
-    """
-    Extracts the ticker symbol from the Lambda event.
+    """Extract ticker symbol from the event."""
+    try:
+        # Check if body is present
+        if 'body' not in event:
+            raise ValueError("No body in event")
 
-    Args:
-        event: The Lambda event object
+        # Parse body as JSON if it's a string
+        body = event['body']
+        if isinstance(body, str):
+            # Check if body starts with "Content-Type:" which indicates it includes headers
+            if body.startswith('Content-Type:'):
+                # Extract only the JSON part after the double newline
+                body_parts = body.split('\n\n', 1)
+                if len(body_parts) > 1:
+                    body = body_parts[1]
 
-    Returns:
-        str: The extracted ticker symbol
-    """
-    # This is a placeholder for your existing extract_ticker_from_event function
-    # Keep your existing implementation here
+            import json
+            body = json.loads(body)
 
-    # Example implementation (replace with your actual implementation):
-    if 'ticker' in event:
-        return event['ticker']
-    elif 'Records' in event and len(event['Records']) > 0:
-        # Example S3 event handling
-        s3_info = event['Records'][0]['s3']
-        key = s3_info['object']['key']
-        # Extract ticker from key, e.g., "data/ES.csv" -> "ES"
-        ticker = key.split('/')[-1].split('.')[0]
-        return ticker
-    else:
+        # Extract ticker from parsed body
+        if 'ticker' in body:
+            ticker = body['ticker']
+            return ticker
+
+        # Alternative places to check if not in body
+        if 'ticker' in event:
+            return event['ticker']
+
+        # Check in queryStringParameters
+        if event.get('queryStringParameters') and 'ticker' in event['queryStringParameters']:
+            return event['queryStringParameters']['ticker']
+
+        raise ValueError("No ticker field found in request")
+    except Exception as e:
+        print(f"Error extracting ticker: {str(e)}")
         raise ValueError("Could not extract ticker from event")
