@@ -102,14 +102,14 @@ class MochiBatchResources(Construct):
             },
             {
                 "name": "mochi-graphs",
-                "image": "172829043653.dkr.ecr.us-east-1.amazonaws.com/mochi-r:latest",
+                "image": "ghcr.io/willhumphreys/r-graphs:latest",
                 "vcpu": 4.0,
                 "memory": 16384,
                 "timeout_seconds": 14400,
             },
             {
                 "name": "mochi-trades",
-                "image": "172829043653.dkr.ecr.us-east-1.amazonaws.com/mochi-java:latest",
+                "image": "739275456034.dkr.ecr.eu-central-1.amazonaws.com/mochi-java:latest",
                 "vcpu": 4.0,
                 "memory": 30720,
                 "timeout_seconds": 14400,
