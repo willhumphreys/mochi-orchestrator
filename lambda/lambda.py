@@ -1,7 +1,6 @@
 import json
 import boto3
 import random
-import datetime
 import os
 
 
@@ -36,7 +35,7 @@ def handler(event, context):
     print(f"Using queue: {queue_name}")
 
     # Step 1: Submit the polygon job (first in the chain)
-    polygon_job_name = f"polygon-job-{ticker}"
+    polygon_job_name = f"polygon-job-{ticker}-{group_tag}"
     print(f"Submitting polygon job: {polygon_job_name}")
 
     polygon_response = batch_client.submit_job(
@@ -70,7 +69,7 @@ def handler(event, context):
     print(f"Submitted polygon job with ID: {polygon_job_id}")
 
     # Step 2: Submit the trade-data-enhancer job (dependent on polygon job)
-    enhance_job_name = f"trade-data-enhancer-{ticker}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+    enhance_job_name = f"trade-data-enhancer-{ticker}-{group_tag}"
     print(f"Submitting trade-data-enhancer job: {enhance_job_name}")
 
     enhance_response = batch_client.submit_job(
@@ -117,9 +116,9 @@ def handler(event, context):
     trade_type = "long"  # Default to long since our scenario doesn't have "short"
 
     # Generate job names
-    trades_job_name = f"Trades{ticker}"
-    aggregate_job_name = f"Aggregate{ticker}"
-    graphs_job_name = f"Graphs{ticker}"
+    trades_job_name = f"Trades{ticker}-{group_tag}"
+    aggregate_job_name = f"Aggregate{ticker}-{group_tag}"
+    graphs_job_name = f"Graphs{ticker}-{group_tag}"
 
     print(f"Submitting job with name: {trades_job_name} with scenario: {full_scenario}")
 
@@ -261,7 +260,7 @@ def handler(event, context):
             print(f"Submitted bestTraders.r graph job with ID: {best_traders_job_id}")
 
     # Submit trade-extract job
-    trade_extract_job_name = f"trade-extract-{base_symbol}"
+    trade_extract_job_name = f"trade-extract-{base_symbol}-{group_tag}"
     print(f"Submitting trade-extract job with name: {trade_extract_job_name}")
     trade_extract_response = batch_client.submit_job(
         jobName=trade_extract_job_name,
@@ -303,7 +302,7 @@ def handler(event, context):
     print(f"Submitted trade-extract job with ID: {trade_extract_job_id}")
 
     # Submit py-trade-lens job
-    py_trade_lens_job_name = f"py-trade-lens-{base_symbol}"
+    py_trade_lens_job_name = f"py-trade-lens-{base_symbol}-{group_tag}"
     print(f"Submitting py-trade-lens job with name: {py_trade_lens_job_name}")
     py_trade_lens_response = batch_client.submit_job(
         jobName=py_trade_lens_job_name,
@@ -330,7 +329,7 @@ def handler(event, context):
     print(f"Submitted py-trade-lens job with ID: {py_trade_lens_job_id}")
 
     # Submit trade-summary job
-    trade_summary_job_name = f"trade_summary-{base_symbol}"
+    trade_summary_job_name = f"trade_summary-{base_symbol}-{group_tag}"
     print(f"Submitting trade-summary job with name: {trade_summary_job_name}")
     trade_summary_response = batch_client.submit_job(
         jobName=trade_summary_job_name,
