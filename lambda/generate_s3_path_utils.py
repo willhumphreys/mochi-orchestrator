@@ -29,11 +29,4 @@ def generate_s3_path(ticker, asset_type, source='polygon'):
     s3_path = f"{asset_type}/{ticker}/{source}//{year}/{month}/{day}/{hour}"
 
     # Return both the path and datetime components for further use
-    return s3_path, {
-        'date_str': date_str,
-        'year': year,
-        'month': month,
-        'day': day,
-        'hour': hour,
-        'datetime_str': datetime_str
-    }
+    return s3_path
