@@ -2,6 +2,7 @@ import json
 import boto3
 import random
 import os
+from generate_s3_path_utils import generate_s3_path
 
 
 def handler(event, context):
@@ -26,9 +27,13 @@ def handler(event, context):
     group_tag = random.choice(easy_words)
     print(f"Using group tag: {group_tag} for all jobs in this execution")
 
+
     # Extract ticker from event
     ticker = extract_ticker_from_event(event)
     print(f"Processing ticker: {ticker}")
+
+    s3_path = generate_s3_path(ticker, "stocks", "polygon" )
+
 
     # Common job queue
     queue_name = "fargateSpotTrades"
@@ -46,7 +51,7 @@ def handler(event, context):
             'ticker': ticker  # This is used for parameter substitution in the job definition
         },
         containerOverrides={
-            'command': ["python", "src/main.py", "--tickers", ticker],
+            'command': ["python", "src/main.py", "--tickers", ticker, "--s3_path", s3_path],
             'environment': [
                 {
                     "name": "POLYGON_API_KEY",
