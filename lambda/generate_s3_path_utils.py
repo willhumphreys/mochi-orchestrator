@@ -26,7 +26,7 @@ def generate_s3_path(ticker, asset_type, source='polygon'):
     datetime_str = now.strftime('%Y%m%d%H%M')
 
     # Construct the S3 key (path)
-    s3_path = f"{asset_type}/{ticker}/{source}//{year}/{month}/{day}/{hour}"
+    s3_path = f"{asset_type}/{ticker}/{source}/{year}/{month}/{day}/{hour}"
 
     # Return both the path and datetime components for further use
     return s3_path

@@ -84,7 +84,7 @@ def handler(event, context):
         dependsOn=[{'jobId': polygon_job_id}],
 
         containerOverrides={
-            'command': ["python", "src/enhancer.py", "--ticker", ticker, "--provider", "polygon"],
+            'command': ["python", "src/enhancer.py", "--ticker", ticker, "--provider", "polygon", "--s3_path", s3_path],
             'environment': [
                 {
                     'name': 'INPUT_BUCKET_NAME',
