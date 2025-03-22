@@ -1,7 +1,6 @@
 import json
 import os
 import random
-
 import boto3
 
 from generate_s3_path_utils import generate_s3_path
@@ -104,7 +103,7 @@ def handler(event, context):
                                               jobDefinition="mochi-trades", dependsOn=[{'jobId': enhance_job_id}],
                                               containerOverrides={
                                                   "command": ["-scenario", full_scenario, "-output_dir", "results",
-                                                              "-write_trades", "-upload_to_s3", "--s3_key_min", s3_key_min],
+                                                              "-write_trades", "-upload_to_s3", "-s3_key_min", s3_key_min],
                                                   'environment': [{'name': 'MOCHI_DATA_BUCKET',
                                                                    'value': os.environ.get('PREPARED_BUCKET_NAME')},
                                                                   {'name': 'MOCHI_TRADES_BUCKET',

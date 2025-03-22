@@ -32,7 +32,7 @@ class MochiComputeStack(Stack):
         lambda_function = _lambda.Function(
             self, "OrchestratorFunction",
             runtime=_lambda.Runtime.PYTHON_3_13,
-            handler="lambda.handler",
+            handler="market_data_pipeline_launcher.handler",
             code=_lambda.Code.from_asset("lambda"),
             timeout=Duration.minutes(1),
             environment={
