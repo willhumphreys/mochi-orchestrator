@@ -43,7 +43,7 @@ def handler(event, context):
     polygon_response = batch_client.submit_job(jobName=polygon_job_name, jobQueue=queue_name,
         jobDefinition='polygon-extract',
         parameters={'ticker': ticker, 'from_date': from_date, 'to_date': to_date
-        }, containerOverrides={'command': ["python", "src/main.py", "--tickers", ticker, "--s3_path", s3_path],
+        }, containerOverrides={'command': ["python", "src/main.py", "--tickers", ticker, "--s3_path", s3_path, "--from_date", from_date, "--to_date", to_date],
             'environment': [{"name": "POLYGON_API_KEY", "value": os.environ.get('POLYGON_API_KEY')},
                 {'name': 'OUTPUT_BUCKET_NAME', 'value': os.environ.get('RAW_BUCKET_NAME')}]},
         tags={"Ticker": ticker, "SubmissionGroupTag": group_tag, "TaskType": "polygon-extract"})
