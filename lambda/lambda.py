@@ -187,7 +187,7 @@ def handler(event, context):
 
 
 def extract_arguments_from_event(event):
-    """Extract ticker symbol from the event body."""
+    """Extract ticker symbol and date range from the event body."""
     try:
         # Check if body is present
         if 'body' not in event:
@@ -215,11 +215,12 @@ def extract_arguments_from_event(event):
         else:
             raise ValueError("No to_date field found in request body")
 
-        # Return all extracted parameters
-        return {'ticker': ticker, 'from_date': from_date, 'to_date': to_date}
+        # Return the values as separate items, not as a dictionary
+        return ticker, from_date, to_date
     except Exception as e:
         print(f"Error extracting arguments from event body: {str(e)}")
         raise ValueError("Could not extract arguments from event body")
+
 
 
 
