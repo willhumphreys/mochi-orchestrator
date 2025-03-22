@@ -59,8 +59,7 @@ def handler(event, context):
         jobDefinition="trade-data-enhancer", dependsOn=[{'jobId': polygon_job_id}],
 
         containerOverrides={
-            'command': ["python", "src/enhancer.py", "--ticker", ticker, "--provider", "polygon", "--s3_path", s3_path,
-                        "--from_date", from_date, "--to_date", to_date],
+            'command': ["python", "src/enhancer.py", "--ticker", ticker, "--provider", "polygon", "--s3_path", s3_path],
             'environment': [{'name': 'INPUT_BUCKET_NAME', 'value': os.environ.get('RAW_BUCKET_NAME')},
                 {'name': 'OUTPUT_BUCKET_NAME', 'value': os.environ.get('PREPARED_BUCKET_NAME')}]},
         tags={"Ticker": ticker, "SubmissionGroupTag": group_tag, "TaskType": "trade-data-enhancer"})
@@ -106,7 +105,7 @@ def handler(event, context):
     print(f"Submitting aggregation job with name: {aggregate_job_name} with scenario: {full_scenario}")
     agg_response = batch_client.submit_job(jobName=aggregate_job_name, dependsOn=[{'jobId': trades_job_id}],
         jobQueue=queue_name, jobDefinition="mochi-trades", containerOverrides={
-            "command": ["-scenario", full_scenario, "-output_dir", "results", "-upload_to_s3", "-aggregate"],
+            "command": ["-scenario", full_scenario, "-output_dir", "results", "-upload_to_s3", "-aggregate", "-s3_path", s3_path],
             'environment': [{'name': 'MOCHI_DATA_BUCKET', 'value': os.environ.get('PREPARED_BUCKET_NAME')},
                 {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
                 {'name': 'MOCHI_TRADERS_BUCKET', 'value': os.environ.get('TRADER_BUCKET_NAME')},
