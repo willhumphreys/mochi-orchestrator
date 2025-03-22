@@ -206,12 +206,12 @@ def extract_arguments_from_event(event):
             raise ValueError("No ticker field found in request body")
 
         if 'from_date' in body:
-            from_date = body.get('from_date', None)
+            from_date = body['from_date']
         else:
             raise ValueError("No from_date field found in request body")
 
         if 'to_date' in body:
-            to_date = body.get('to_date', None)
+            to_date = body['to_date']
         else:
             raise ValueError("No to_date field found in request body")
 
