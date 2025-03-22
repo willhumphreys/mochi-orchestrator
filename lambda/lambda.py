@@ -19,8 +19,8 @@ def handler(event, context):
 
     # Easy-to-remember random words for group tagging
     easy_words = ["apple", "banana", "cherry", "dragonfruit", "elderberry", "fig", "grape", "honeydew", "kiwi", "lemon",
-        "mango", "nectarine", "orange", "papaya", "quince", "raspberry", "strawberry", "tangerine", "ugli", "vanilla",
-        "watermelon", "xigua", "yam", "zucchini"]
+                  "mango", "nectarine", "orange", "papaya", "quince", "raspberry", "strawberry", "tangerine", "ugli",
+                  "vanilla", "watermelon", "xigua", "yam", "zucchini"]
 
     # Generate a random group tag for all jobs in this execution
     group_tag = random.choice(easy_words)
@@ -30,8 +30,9 @@ def handler(event, context):
     ticker, from_date, to_date = extract_arguments_from_event(event)
     print(f"Processing ticker: {ticker} {from_date} {to_date}")
 
-    s3_path = generate_s3_path(ticker, "stocks", "polygon")
-    s3_key = f"{s3_path}/{ticker}_polygon_1min.csv.lzo"
+    s3_key_min = generate_s3_path(ticker, "stocks", "polygon", timeframe="1min")
+    s3_key_hour = generate_s3_path(ticker, "stocks", "polygon", timeframe="1hour")
+    s3_key_day = generate_s3_path(ticker, "stocks", "polygon", timeframe="1day")
 
     # Common job queue
     queue_name = "fargateSpotTrades"
@@ -42,12 +43,15 @@ def handler(event, context):
     print(f"Submitting polygon job: {polygon_job_name}")
 
     polygon_response = batch_client.submit_job(jobName=polygon_job_name, jobQueue=queue_name,
-        jobDefinition='polygon-extract',
-        parameters={'ticker': ticker, 'from_date': from_date, 'to_date': to_date
-        }, containerOverrides={'command': ["python", "src/main.py", "--tickers", ticker, "--s3_path", s3_key, "--from_date", from_date, "--to_date", to_date],
+                                               jobDefinition='polygon-extract',
+                                               parameters={'ticker': ticker, 'from_date': from_date,
+                                                           'to_date': to_date}, containerOverrides={
+            'command': ["python", "src/main.py", "--tickers", ticker, "--s3_key_min", s3_key_min, "--s3_key_hour",
+                        s3_key_hour, "--s3_key_day", s3_key_day, "--from_date", from_date, "--to_date", to_date],
             'environment': [{"name": "POLYGON_API_KEY", "value": os.environ.get('POLYGON_API_KEY')},
-                {'name': 'OUTPUT_BUCKET_NAME', 'value': os.environ.get('RAW_BUCKET_NAME')}]},
-        tags={"Ticker": ticker, "SubmissionGroupTag": group_tag, "TaskType": "polygon-extract"})
+                            {'name': 'OUTPUT_BUCKET_NAME', 'value': os.environ.get('RAW_BUCKET_NAME')}]},
+                                               tags={"Ticker": ticker, "SubmissionGroupTag": group_tag,
+                                                     "TaskType": "polygon-extract"})
 
     polygon_job_id = polygon_response['jobId']
     print(f"Submitted polygon job with ID: {polygon_job_id}")
@@ -57,13 +61,19 @@ def handler(event, context):
     print(f"Submitting trade-data-enhancer job: {enhance_job_name}")
 
     enhance_response = batch_client.submit_job(jobName=enhance_job_name, jobQueue=queue_name,
-        jobDefinition="trade-data-enhancer", dependsOn=[{'jobId': polygon_job_id}],
+                                               jobDefinition="trade-data-enhancer",
+                                               dependsOn=[{'jobId': polygon_job_id}],
 
-        containerOverrides={
-            'command': ["python", "src/enhancer.py", "--ticker", ticker, "--provider", "polygon", "--s3_path", s3_path],
-            'environment': [{'name': 'INPUT_BUCKET_NAME', 'value': os.environ.get('RAW_BUCKET_NAME')},
-                {'name': 'OUTPUT_BUCKET_NAME', 'value': os.environ.get('PREPARED_BUCKET_NAME')}]},
-        tags={"Ticker": ticker, "SubmissionGroupTag": group_tag, "TaskType": "trade-data-enhancer"})
+                                               containerOverrides={
+                                                   'command': ["python", "src/enhancer.py", "--ticker", ticker,
+                                                               "--provider", "polygon","--s3_key_min", s3_key_min, "--s3_key_hour",
+                                                               s3_key_hour, "--s3_key_day", s3_key_day],
+                                                   'environment': [{'name': 'INPUT_BUCKET_NAME',
+                                                                    'value': os.environ.get('RAW_BUCKET_NAME')},
+                                                                   {'name': 'OUTPUT_BUCKET_NAME',
+                                                                    'value': os.environ.get('PREPARED_BUCKET_NAME')}]},
+                                               tags={"Ticker": ticker, "SubmissionGroupTag": group_tag,
+                                                     "TaskType": "trade-data-enhancer"})
 
     enhance_job_id = enhance_response['jobId']
     print(f"Submitted trade-data-enhancer job with ID: {enhance_job_id}")
@@ -91,13 +101,19 @@ def handler(event, context):
 
     # Submit the trades job (dependent on trade-data-enhancer-job)
     trades_response = batch_client.submit_job(jobName=trades_job_name, jobQueue=queue_name,
-        jobDefinition="mochi-trades", dependsOn=[{'jobId': enhance_job_id}], containerOverrides={
-            "command": ["-scenario", full_scenario, "-output_dir", "results", "-write_trades", "-upload_to_s3", "-s3_path", s3_path],
-            'environment': [{'name': 'MOCHI_DATA_BUCKET', 'value': os.environ.get('PREPARED_BUCKET_NAME')},
-                {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
-                {'name': 'MOCHI_TRADERS_BUCKET', 'value': os.environ.get('TRADER_BUCKET_NAME')}]},
-        tags={"Scenario": full_scenario, "Symbol": symbol_file, "SubmissionGroupTag": group_tag,
-            "TradeType": trade_type, "TaskType": "trade"})
+                                              jobDefinition="mochi-trades", dependsOn=[{'jobId': enhance_job_id}],
+                                              containerOverrides={
+                                                  "command": ["-scenario", full_scenario, "-output_dir", "results",
+                                                              "-write_trades", "-upload_to_s3", "--s3_key_1min", s3_key_min],
+                                                  'environment': [{'name': 'MOCHI_DATA_BUCKET',
+                                                                   'value': os.environ.get('PREPARED_BUCKET_NAME')},
+                                                                  {'name': 'MOCHI_TRADES_BUCKET',
+                                                                   'value': os.environ.get('TRADES_BUCKET_NAME')},
+                                                                  {'name': 'MOCHI_TRADERS_BUCKET',
+                                                                   'value': os.environ.get('TRADER_BUCKET_NAME')}]},
+                                              tags={"Scenario": full_scenario, "Symbol": symbol_file,
+                                                    "SubmissionGroupTag": group_tag, "TradeType": trade_type,
+                                                    "TaskType": "trade"})
 
     trades_job_id = trades_response['jobId']
     print(f"Submitted trades job with ID: {trades_job_id}")
@@ -105,17 +121,18 @@ def handler(event, context):
     # Submit aggregation job
     print(f"Submitting aggregation job with name: {aggregate_job_name} with scenario: {full_scenario}")
     agg_response = batch_client.submit_job(jobName=aggregate_job_name, dependsOn=[{'jobId': trades_job_id}],
-        jobQueue=queue_name, jobDefinition="mochi-trades", containerOverrides={
-            "command": ["-scenario", full_scenario, "-output_dir", "results", "-upload_to_s3", "-aggregate", "-s3_path", s3_path],
+                                           jobQueue=queue_name, jobDefinition="mochi-trades", containerOverrides={
+            "command": ["-scenario", full_scenario, "-output_dir", "results", "-upload_to_s3", "-aggregate", "-s3_path",
+                        s3_path],
             'environment': [{'name': 'MOCHI_DATA_BUCKET', 'value': os.environ.get('PREPARED_BUCKET_NAME')},
-                {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
-                {'name': 'MOCHI_TRADERS_BUCKET', 'value': os.environ.get('TRADER_BUCKET_NAME')},
-                {'name': 'MOCHI_AGGREGATION_BUCKET', 'value': os.environ.get('MOCHI_AGGREGATION_BUCKET')},
-                {'name': 'MOCHI_AGGREGATION_BUCKET_STAGING',
-                    'value': os.environ.get('MOCHI_AGGREGATION_BUCKET_STAGING')}
+                            {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
+                            {'name': 'MOCHI_TRADERS_BUCKET', 'value': os.environ.get('TRADER_BUCKET_NAME')},
+                            {'name': 'MOCHI_AGGREGATION_BUCKET', 'value': os.environ.get('MOCHI_AGGREGATION_BUCKET')},
+                            {'name': 'MOCHI_AGGREGATION_BUCKET_STAGING',
+                             'value': os.environ.get('MOCHI_AGGREGATION_BUCKET_STAGING')}
 
-            ]}, tags={"Scenario": full_scenario, "Symbol": symbol_file, "SubmissionGroupTag": group_tag,
-            "TradeType": trade_type, "TaskType": "aggregation"})
+                            ]}, tags={"Scenario": full_scenario, "Symbol": symbol_file, "SubmissionGroupTag": group_tag,
+                                      "TradeType": trade_type, "TaskType": "aggregation"})
 
     agg_job_id = agg_response['jobId']
     print(f"Submitted aggregation job with ID: {agg_job_id}")
@@ -130,13 +147,20 @@ def handler(event, context):
 
         print(f"Submitting graph job with name: {job_name} with scenario: {scenario_value}")
         graph_response = batch_client.submit_job(jobName=job_name, dependsOn=[{'jobId': agg_job_id}],
-            jobQueue=queue_name, jobDefinition="r-graphs", containerOverrides={"command": [scenario_value, script],
-                'environment': [
-                    {'name': 'MOCHI_AGGREGATION_BUCKET', 'value': os.environ.get('MOCHI_AGGREGATION_BUCKET')},
-                    {'name': 'MOCHI_GRAPHS_BUCKET', 'value': os.environ.get('MOCHI_GRAPHS_BUCKET')}
+                                                 jobQueue=queue_name, jobDefinition="r-graphs",
+                                                 containerOverrides={"command": [scenario_value, script],
+                                                                     'environment': [
+                                                                         {'name': 'MOCHI_AGGREGATION_BUCKET',
+                                                                          'value': os.environ.get(
+                                                                              'MOCHI_AGGREGATION_BUCKET')},
+                                                                         {'name': 'MOCHI_GRAPHS_BUCKET',
+                                                                          'value': os.environ.get(
+                                                                              'MOCHI_GRAPHS_BUCKET')}
 
-                ]}, tags={"Scenario": just_scenario, "Symbol": base_symbol, "SubmissionGroupTag": group_tag,
-                "TradeType": trade_type, "TaskType": "graph"})
+                                                                     ]},
+                                                 tags={"Scenario": just_scenario, "Symbol": base_symbol,
+                                                       "SubmissionGroupTag": group_tag, "TradeType": trade_type,
+                                                       "TaskType": "graph"})
 
         if script == "bestTraders.r":
             best_traders_job_id = graph_response['jobId']
@@ -146,14 +170,15 @@ def handler(event, context):
     trade_extract_job_name = f"trade-extract-{base_symbol}-{group_tag}"
     print(f"Submitting trade-extract job with name: {trade_extract_job_name}")
     trade_extract_response = batch_client.submit_job(jobName=trade_extract_job_name, jobQueue=queue_name,
-        jobDefinition="trade-extract", dependsOn=[{'jobId': best_traders_job_id}],
-        containerOverrides={"command": ["--symbol", base_symbol, "--scenario", scenario_template],
+                                                     jobDefinition="trade-extract",
+                                                     dependsOn=[{'jobId': best_traders_job_id}], containerOverrides={
+            "command": ["--symbol", base_symbol, "--scenario", scenario_template],
             'environment': [{'name': 'MOCHI_GRAPHS_BUCKET', 'value': os.environ.get('MOCHI_GRAPHS_BUCKET')},
-                {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
-                {'name': 'MOCHI_PROD_TRADE_EXTRACTS', 'value': os.environ.get('MOCHI_PROD_TRADE_EXTRACTS')}
+                            {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
+                            {'name': 'MOCHI_PROD_TRADE_EXTRACTS', 'value': os.environ.get('MOCHI_PROD_TRADE_EXTRACTS')}
 
-            ]}, tags={"Scenario": scenario_template, "Symbol": base_symbol, "SubmissionGroupTag": group_tag,
-            "TaskType": "trade-extract"})
+                            ]}, tags={"Scenario": scenario_template, "Symbol": base_symbol,
+                                      "SubmissionGroupTag": group_tag, "TaskType": "trade-extract"})
 
     trade_extract_job_id = trade_extract_response['jobId']
     print(f"Submitted trade-extract job with ID: {trade_extract_job_id}")
@@ -162,10 +187,12 @@ def handler(event, context):
     py_trade_lens_job_name = f"py-trade-lens-{base_symbol}-{group_tag}"
     print(f"Submitting py-trade-lens job with name: {py_trade_lens_job_name}")
     py_trade_lens_response = batch_client.submit_job(jobName=py_trade_lens_job_name, jobQueue=queue_name,
-        jobDefinition="py-trade-lens", dependsOn=[{'jobId': trade_extract_job_id}],
-        containerOverrides={"command": ["--symbol", base_symbol, "--scenario", scenario_template]},
-        tags={"Scenario": scenario_template, "Symbol": base_symbol, "SubmissionGroupTag": group_tag,
-            "TaskType": "py-trade-lens"})
+                                                     jobDefinition="py-trade-lens",
+                                                     dependsOn=[{'jobId': trade_extract_job_id}], containerOverrides={
+            "command": ["--symbol", base_symbol, "--scenario", scenario_template]},
+                                                     tags={"Scenario": scenario_template, "Symbol": base_symbol,
+                                                           "SubmissionGroupTag": group_tag,
+                                                           "TaskType": "py-trade-lens"})
 
     py_trade_lens_job_id = py_trade_lens_response['jobId']
     print(f"Submitted py-trade-lens job with ID: {py_trade_lens_job_id}")
@@ -174,16 +201,18 @@ def handler(event, context):
     trade_summary_job_name = f"trade_summary-{base_symbol}-{group_tag}"
     print(f"Submitting trade-summary job with name: {trade_summary_job_name}")
     trade_summary_response = batch_client.submit_job(jobName=trade_summary_job_name, jobQueue=queue_name,
-        jobDefinition="trade-summary", dependsOn=[{'jobId': py_trade_lens_job_id}],
-        containerOverrides={"command": ["--symbol", base_symbol]},
-        tags={"Symbol": base_symbol, "SubmissionGroupTag": group_tag, "TaskType": "trade_summary"})
+                                                     jobDefinition="trade-summary",
+                                                     dependsOn=[{'jobId': py_trade_lens_job_id}],
+                                                     containerOverrides={"command": ["--symbol", base_symbol]},
+                                                     tags={"Symbol": base_symbol, "SubmissionGroupTag": group_tag,
+                                                           "TaskType": "trade_summary"})
 
     print(f"Submitted trade-summary job with ID: {trade_summary_response['jobId']}")
 
     # Return the results
     return {'statusCode': 200, 'body': json.dumps(
         {'message': f'Successfully submitted job chain for {ticker}', 'polygonJobId': polygon_job_id,
-            'enhanceJobId': enhance_job_id, 'tradesJobId': trades_job_id, 'groupTag': group_tag})}
+         'enhanceJobId': enhance_job_id, 'tradesJobId': trades_job_id, 'groupTag': group_tag})}
 
 
 def extract_arguments_from_event(event):
@@ -220,10 +249,3 @@ def extract_arguments_from_event(event):
     except Exception as e:
         print(f"Error extracting arguments from event body: {str(e)}")
         raise ValueError("Could not extract arguments from event body")
-
-
-
-
-
-
-
