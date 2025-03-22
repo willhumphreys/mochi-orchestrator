@@ -122,8 +122,7 @@ def handler(event, context):
     print(f"Submitting aggregation job with name: {aggregate_job_name} with scenario: {full_scenario}")
     agg_response = batch_client.submit_job(jobName=aggregate_job_name, dependsOn=[{'jobId': trades_job_id}],
                                            jobQueue=queue_name, jobDefinition="mochi-trades", containerOverrides={
-            "command": ["-scenario", full_scenario, "-output_dir", "results", "-upload_to_s3", "-aggregate", "-s3_path",
-                        s3_path],
+            "command": ["-scenario", full_scenario, "-output_dir", "results", "-upload_to_s3", "-aggregate", "--s3_key_1min", s3_key_min],
             'environment': [{'name': 'MOCHI_DATA_BUCKET', 'value': os.environ.get('PREPARED_BUCKET_NAME')},
                             {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
                             {'name': 'MOCHI_TRADERS_BUCKET', 'value': os.environ.get('TRADER_BUCKET_NAME')},
