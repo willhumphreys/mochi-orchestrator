@@ -31,6 +31,7 @@ def handler(event, context):
     print(f"Processing ticker: {ticker} {from_date} {to_date}")
 
     s3_path = generate_s3_path(ticker, "stocks", "polygon")
+    s3_key = f"{s3_path}/{ticker}_polygon_1min.csv.lzo"
 
     # Common job queue
     queue_name = "fargateSpotTrades"
@@ -43,7 +44,7 @@ def handler(event, context):
     polygon_response = batch_client.submit_job(jobName=polygon_job_name, jobQueue=queue_name,
         jobDefinition='polygon-extract',
         parameters={'ticker': ticker, 'from_date': from_date, 'to_date': to_date
-        }, containerOverrides={'command': ["python", "src/main.py", "--tickers", ticker, "--s3_path", s3_path, "--from_date", from_date, "--to_date", to_date],
+        }, containerOverrides={'command': ["python", "src/main.py", "--tickers", ticker, "--s3_path", s3_key, "--from_date", from_date, "--to_date", to_date],
             'environment': [{"name": "POLYGON_API_KEY", "value": os.environ.get('POLYGON_API_KEY')},
                 {'name': 'OUTPUT_BUCKET_NAME', 'value': os.environ.get('RAW_BUCKET_NAME')}]},
         tags={"Ticker": ticker, "SubmissionGroupTag": group_tag, "TaskType": "polygon-extract"})
@@ -91,7 +92,7 @@ def handler(event, context):
     # Submit the trades job (dependent on trade-data-enhancer-job)
     trades_response = batch_client.submit_job(jobName=trades_job_name, jobQueue=queue_name,
         jobDefinition="mochi-trades", dependsOn=[{'jobId': enhance_job_id}], containerOverrides={
-            "command": ["-scenario", full_scenario, "-output_dir", "results", "-write_trades", "-upload_to_s3"],
+            "command": ["-scenario", full_scenario, "-output_dir", "results", "-write_trades", "-upload_to_s3", "-s3_path", s3_path],
             'environment': [{'name': 'MOCHI_DATA_BUCKET', 'value': os.environ.get('PREPARED_BUCKET_NAME')},
                 {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
                 {'name': 'MOCHI_TRADERS_BUCKET', 'value': os.environ.get('TRADER_BUCKET_NAME')}]},
