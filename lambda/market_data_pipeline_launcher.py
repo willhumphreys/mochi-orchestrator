@@ -1,6 +1,7 @@
 import json
 import os
 import random
+
 import boto3
 
 from generate_s3_path_utils import generate_s3_path
@@ -65,12 +66,13 @@ def handler(event, context):
 
                                                containerOverrides={
                                                    'command': ["python", "src/enhancer.py", "--ticker", ticker,
-                                                               "--provider", "polygon","--s3_key_min", s3_key_min, "--s3_key_hour",
-                                                               s3_key_hour, "--s3_key_day", s3_key_day],
-                                                   'environment': [{'name': 'INPUT_BUCKET_NAME',
-                                                                    'value': os.environ.get('RAW_BUCKET_NAME')},
-                                                                   {'name': 'OUTPUT_BUCKET_NAME',
-                                                                    'value': os.environ.get('PREPARED_BUCKET_NAME')}]},
+                                                               "--provider", "polygon", "--s3_key_min", s3_key_min,
+                                                               "--s3_key_hour", s3_key_hour, "--s3_key_day",
+                                                               s3_key_day], 'environment': [
+                                                       {'name': 'INPUT_BUCKET_NAME',
+                                                        'value': os.environ.get('RAW_BUCKET_NAME')},
+                                                       {'name': 'OUTPUT_BUCKET_NAME',
+                                                        'value': os.environ.get('PREPARED_BUCKET_NAME')}]},
                                                tags={"Ticker": ticker, "SubmissionGroupTag": group_tag,
                                                      "TaskType": "trade-data-enhancer"})
 
@@ -103,13 +105,18 @@ def handler(event, context):
                                               jobDefinition="mochi-trades", dependsOn=[{'jobId': enhance_job_id}],
                                               containerOverrides={
                                                   "command": ["-scenario", full_scenario, "-output_dir", "results",
-                                                              "-write_trades", "-upload_to_s3", "-s3_key_min", s3_key_min],
-                                                  'environment': [{'name': 'MOCHI_DATA_BUCKET',
-                                                                   'value': os.environ.get('PREPARED_BUCKET_NAME')},
-                                                                  {'name': 'MOCHI_TRADES_BUCKET',
-                                                                   'value': os.environ.get('TRADES_BUCKET_NAME')},
-                                                                  {'name': 'MOCHI_TRADERS_BUCKET',
-                                                                   'value': os.environ.get('TRADER_BUCKET_NAME')}]},
+                                                              "-write_trades", "-upload_to_s3", "-s3_key_min",
+                                                              s3_key_min], 'environment': [{'name': 'MOCHI_DATA_BUCKET',
+                                                                                            'value': os.environ.get(
+                                                                                                'PREPARED_BUCKET_NAME')},
+                                                                                           {
+                                                                                               'name': 'MOCHI_TRADES_BUCKET',
+                                                                                               'value': os.environ.get(
+                                                                                                   'TRADES_BUCKET_NAME')},
+                                                                                           {
+                                                                                               'name': 'MOCHI_TRADERS_BUCKET',
+                                                                                               'value': os.environ.get(
+                                                                                                   'TRADER_BUCKET_NAME')}]},
                                               tags={"Scenario": full_scenario, "Symbol": symbol_file,
                                                     "SubmissionGroupTag": group_tag, "TradeType": trade_type,
                                                     "TaskType": "trade"})
@@ -121,7 +128,8 @@ def handler(event, context):
     print(f"Submitting aggregation job with name: {aggregate_job_name} with scenario: {full_scenario}")
     agg_response = batch_client.submit_job(jobName=aggregate_job_name, dependsOn=[{'jobId': trades_job_id}],
                                            jobQueue=queue_name, jobDefinition="mochi-trades", containerOverrides={
-            "command": ["-scenario", full_scenario, "-output_dir", "results", "-upload_to_s3", "-aggregate", "-s3_key_min", s3_key_min],
+            "command": ["-scenario", full_scenario, "-output_dir", "results", "-upload_to_s3", "-aggregate",
+                        "-s3_key_min", s3_key_min],
             'environment': [{'name': 'MOCHI_DATA_BUCKET', 'value': os.environ.get('PREPARED_BUCKET_NAME')},
                             {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
                             {'name': 'MOCHI_TRADERS_BUCKET', 'value': os.environ.get('TRADER_BUCKET_NAME')},
@@ -141,7 +149,7 @@ def handler(event, context):
     for script in ["years.r", "stops.r", "bestTraders.r"]:
         job_name = f"{graphs_job_name}{script.split('.')[0]}-{group_tag}"
         just_scenario = full_scenario.rsplit('___', 1)[0]
-        scenario_value = f"{base_symbol}/{just_scenario}/aggregated-{base_symbol}_{just_scenario}_aggregationQueryTemplate-all.csv.lzo"
+        scenario_value = f"{base_symbol}_polygon_min/{just_scenario}/aggregated-{base_symbol}_polygon_min_{just_scenario}_aggregationQueryTemplate-all.csv.lzo"
 
         print(f"Submitting graph job with name: {job_name} with scenario: {scenario_value}")
         graph_response = batch_client.submit_job(jobName=job_name, dependsOn=[{'jobId': agg_job_id}],
