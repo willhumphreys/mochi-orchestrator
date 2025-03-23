@@ -64,14 +64,22 @@ def handler(event, context):
     else:
         print(f"All data files for {ticker} already exist. Skipping Polygon job.")
 
+
+    dependencies = []
+    if 'polygon_job_id' in locals():
+        # Only add the polygon job as a dependency if it was actually submitted
+        dependencies.append({'jobId': polygon_job_id})
+    else:
+        polygon_job_id = "skipped"
+
+
     # Step 2: Submit the trade-data-enhancer job (dependent on polygon job)
     enhance_job_name = f"trade-data-enhancer-{ticker}-{group_tag}"
     print(f"Submitting trade-data-enhancer job: {enhance_job_name}")
 
     enhance_response = batch_client.submit_job(jobName=enhance_job_name, jobQueue=queue_name,
                                                jobDefinition="trade-data-enhancer",
-                                               dependsOn=[{'jobId': polygon_job_id}],
-
+                                               dependsOn=dependencies,
                                                containerOverrides={
                                                    'command': ["python", "src/enhancer.py", "--ticker", ticker,
                                                                "--provider", "polygon", "--s3_key_min", s3_key_min,
@@ -158,6 +166,7 @@ def handler(event, context):
         job_name = f"{graphs_job_name}{script.split('.')[0]}-{group_tag}"
         just_scenario = full_scenario.rsplit('___', 1)[0]
         scenario_value = f"{base_symbol}_polygon_min/{just_scenario}/aggregated-{base_symbol}_polygon_min_{just_scenario}_aggregationQueryTemplate-all.csv.lzo"
+        symbol_with_provider = f"{base_symbol}_polygon_min"
 
         print(f"Submitting graph job with name: {job_name} with scenario: {scenario_value}")
         graph_response = batch_client.submit_job(jobName=job_name, dependsOn=[{'jobId': agg_job_id}],
@@ -186,7 +195,7 @@ def handler(event, context):
     trade_extract_response = batch_client.submit_job(jobName=trade_extract_job_name, jobQueue=queue_name,
                                                      jobDefinition="trade-extract",
                                                      dependsOn=[{'jobId': best_traders_job_id}], containerOverrides={
-            "command": ["--symbol", base_symbol, "--scenario", scenario_template],
+            "command": ["--symbol", symbol_with_provider, "--scenario", scenario_template],
             'environment': [{'name': 'MOCHI_GRAPHS_BUCKET', 'value': os.environ.get('MOCHI_GRAPHS_BUCKET')},
                             {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
                             {'name': 'MOCHI_PROD_TRADE_EXTRACTS', 'value': os.environ.get('MOCHI_PROD_TRADE_EXTRACTS')}
@@ -203,7 +212,7 @@ def handler(event, context):
     py_trade_lens_response = batch_client.submit_job(jobName=py_trade_lens_job_name, jobQueue=queue_name,
                                                      jobDefinition="py-trade-lens",
                                                      dependsOn=[{'jobId': trade_extract_job_id}], containerOverrides={
-            "command": ["--symbol", base_symbol, "--scenario", scenario_template]},
+            "command": ["--symbol", symbol_with_provider, "--scenario", scenario_template]},
                                                      tags={"Scenario": scenario_template, "Symbol": base_symbol,
                                                            "SubmissionGroupTag": group_tag,
                                                            "TaskType": "py-trade-lens"})
@@ -217,7 +226,7 @@ def handler(event, context):
     trade_summary_response = batch_client.submit_job(jobName=trade_summary_job_name, jobQueue=queue_name,
                                                      jobDefinition="trade-summary",
                                                      dependsOn=[{'jobId': py_trade_lens_job_id}],
-                                                     containerOverrides={"command": ["--symbol", base_symbol]},
+                                                     containerOverrides={"command": ["--symbol", symbol_with_provider]},
                                                      tags={"Symbol": base_symbol, "SubmissionGroupTag": group_tag,
                                                            "TaskType": "trade_summary"})
 
