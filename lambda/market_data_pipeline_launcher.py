@@ -5,6 +5,7 @@ import random
 import boto3
 
 from generate_s3_path_utils import generate_s3_path
+from do_all_s3_keys_exist import do_all_s3_keys_exist
 
 
 def handler(event, context):
@@ -42,19 +43,26 @@ def handler(event, context):
     polygon_job_name = f"polygon-job-{ticker}-{group_tag}"
     print(f"Submitting polygon job: {polygon_job_name}")
 
-    polygon_response = batch_client.submit_job(jobName=polygon_job_name, jobQueue=queue_name,
-                                               jobDefinition='polygon-extract',
-                                               parameters={'ticker': ticker, 'from_date': from_date,
-                                                           'to_date': to_date}, containerOverrides={
-            'command': ["python", "src/main.py", "--tickers", ticker, "--s3_key_min", s3_key_min, "--s3_key_hour",
-                        s3_key_hour, "--s3_key_day", s3_key_day, "--from_date", from_date, "--to_date", to_date],
-            'environment': [{"name": "POLYGON_API_KEY", "value": os.environ.get('POLYGON_API_KEY')},
-                            {'name': 'OUTPUT_BUCKET_NAME', 'value': os.environ.get('RAW_BUCKET_NAME')}]},
-                                               tags={"Ticker": ticker, "SubmissionGroupTag": group_tag,
-                                                     "TaskType": "polygon-extract"})
+    keys_to_check = [s3_key_min, s3_key_hour, s3_key_day]
 
-    polygon_job_id = polygon_response['jobId']
-    print(f"Submitted polygon job with ID: {polygon_job_id}")
+    raw_data_bucket = os.environ.get('RAW_BUCKET_NAME')
+
+    if not do_all_s3_keys_exist(raw_data_bucket, keys_to_check):
+        polygon_response = batch_client.submit_job(jobName=polygon_job_name, jobQueue=queue_name,
+                                                   jobDefinition='polygon-extract',
+                                                   parameters={'ticker': ticker, 'from_date': from_date,
+                                                               'to_date': to_date}, containerOverrides={
+                'command': ["python", "src/main.py", "--tickers", ticker, "--s3_key_min", s3_key_min, "--s3_key_hour",
+                            s3_key_hour, "--s3_key_day", s3_key_day, "--from_date", from_date, "--to_date", to_date],
+                'environment': [{"name": "POLYGON_API_KEY", "value": os.environ.get('POLYGON_API_KEY')},
+                                {'name': 'OUTPUT_BUCKET_NAME', 'value': os.environ.get('RAW_BUCKET_NAME')}]},
+                                                   tags={"Ticker": ticker, "SubmissionGroupTag": group_tag,
+                                                         "TaskType": "polygon-extract"})
+
+        polygon_job_id = polygon_response['jobId']
+        print(f"Submitted polygon job with ID: {polygon_job_id}")
+    else:
+        print(f"All data files for {ticker} already exist. Skipping Polygon job.")
 
     # Step 2: Submit the trade-data-enhancer job (dependent on polygon job)
     enhance_job_name = f"trade-data-enhancer-{ticker}-{group_tag}"
