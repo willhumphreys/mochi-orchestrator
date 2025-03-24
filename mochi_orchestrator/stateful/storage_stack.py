@@ -245,6 +245,28 @@ class MochiStorageStack(Stack):
             export_name='MochiStorage-FinalTraderRankingBucketArn'
         )
 
-        # Keep existing references for backward compatibility
+        self.ticker_meta_bucket = s3.Bucket(
+            self,
+            "TickerMetaBucket",
+            bucket_name="mochi-prod-ticker-meta",
+            removal_policy=RemovalPolicy.RETAIN
+        )
+
+        CfnOutput(
+            self,
+            "TickerMetaBucketName",
+            value=self.ticker_meta_bucket.bucket_name,
+            description="Name of the ticker metadata bucket"
+        )
+
+        # If you want to export the ARN as well, you can add:
+        CfnOutput(
+            self,
+            "TickerMetaBucketArn",
+            value=self.ticker_meta_bucket.bucket_arn,
+            description="ARN of the ticker metadata bucket"
+        )
+
+# Keep existing references for backward compatibility
         self.input_bucket = self.buckets['raw_historical_data']
         self.output_bucket = self.buckets['prepared_historical_data']
