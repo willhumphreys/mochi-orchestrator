@@ -25,31 +25,34 @@ class MochiComputeStack(Stack):
                  mochi_prod_trade_extracts: str = None,
                  mochi_prod_trade_performance_graphs: str = None,
                  mochi_prod_final_trader_ranking: str = None,
+                 mochi_prod_ticker_meta: str = None,
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Create Lambda function
         lambda_function = _lambda.Function(
-            self, "OrchestratorFunction",
-            runtime=_lambda.Runtime.PYTHON_3_13,
-            handler="market_data_pipeline_launcher.handler",
-            code=_lambda.Code.from_asset("lambda"),
-            timeout=Duration.minutes(1),
-            environment={
+            self,  # scope (Construct)
+            "OrchestratorFunction",  # id (str)
+            runtime=_lambda.Runtime.PYTHON_3_13,  # runtime (Runtime)
+            code=_lambda.Code.from_asset("lambda"),  # code (Code)
+            handler="market_data_pipeline_launcher.handler",  # handler (str)
+            timeout=Duration.minutes(1),  # timeout (Duration)
+            environment={  # environment (Map[str,str])
                 "RAW_BUCKET_NAME": raw_bucket_name or "",
                 "PREPARED_BUCKET_NAME": prepared_bucket_name or "",
                 "POLYGON_API_KEY": os.environ.get("POLYGON_API_KEY", ""),
                 "TRADES_BUCKET_NAME": trades_bucket_name or "",
                 "TRADER_BUCKET_NAME": traders_bucket_name or "",
-                "MOCHI_AGGREGATION_BUCKET_STAGING" : staging_aggregation_bucket_name or "",
-                "MOCHI_AGGREGATION_BUCKET" : aggregation_bucket_name or "",
-                "MOCHI_GRAPHS_BUCKET" : mochi_graphs_bucket or "",
-                "MOCHI_PROD_TRADE_EXTRACTS" : mochi_prod_trade_extracts or "",
-                "MOCHI_PROD_TRADE_PERFORMANCE_GRAPHS" : mochi_prod_trade_performance_graphs or "",
-                "MOCHI_PROD_FINAL_TRADER_RANKING" : mochi_prod_final_trader_ranking or "",
-
+                "MOCHI_AGGREGATION_BUCKET_STAGING": staging_aggregation_bucket_name or "",
+                "MOCHI_AGGREGATION_BUCKET": aggregation_bucket_name or "",
+                "MOCHI_GRAPHS_BUCKET": mochi_graphs_bucket or "",
+                "MOCHI_PROD_TRADE_EXTRACTS": mochi_prod_trade_extracts or "",
+                "MOCHI_PROD_TRADE_PERFORMANCE_GRAPHS": mochi_prod_trade_performance_graphs or "",
+                "MOCHI_PROD_FINAL_TRADER_RANKING": mochi_prod_final_trader_ranking or "",
+                "MOCHI_PROD_TICKER_META": mochi_prod_ticker_meta or ""
             }
         )
+
 
         lambda_function.add_to_role_policy(iam.PolicyStatement(
             actions=[

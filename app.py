@@ -26,7 +26,8 @@ compute_stack = MochiComputeStack(
     mochi_graphs_bucket="mochi-prod-summary-graphs",
     mochi_prod_trade_extracts="mochi-prod-trade-extracts",
     mochi_prod_trade_performance_graphs="mochi-prod-trade_performance_graphs",
-    mochi_prod_final_trader_ranking="mochi-prod-final-trader-ranking"
+    mochi_prod_final_trader_ranking="mochi-prod-final-trader-ranking",
+    mochi_prod_ticker_meta="mochi-prod-ticker-meta"
 )
 
 

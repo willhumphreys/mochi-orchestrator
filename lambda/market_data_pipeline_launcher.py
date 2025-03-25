@@ -73,6 +73,36 @@ def handler(event, context):
         polygon_job_id = "skipped"
 
 
+    # Step 1: Submit the polygon job (first in the chain)
+    metadata_job_name = f"metadata-job-{ticker}-{group_tag}"
+
+    print(f"Submitting job with name: {metadata_job_name}")
+
+
+    # Submit the trades job (dependent on trade-data-enhancer-job)
+    trades_response = batch_client.submit_job(jobName=metadata_job_name, jobQueue=queue_name,
+                                              jobDefinition="data-metadata", dependsOn=[{'jobId': polygon_job_id}],
+                                              containerOverrides={
+                                                  "command": ["--s3-path", s3_key_min, "--ticker", ticker
+
+                                                              ], 'environment': [{'name': 'AWS_REGION',
+                                                                                            'value': 'eu-central-1'},
+                                                                                           {
+                                                                                               'name': 'S3_BUCKET',
+                                                                                               'value': os.environ.get('RAW_BUCKET_NAME')},
+                                                                                           {
+                                                                                               'name': 'S3_UPLOAD_BUCKET',
+                                                                                               'value': os.environ.get(
+                                                                                                   'MOCHI_PROD_TICKER_META')}
+
+
+
+                                                                                           ]},
+                                              tags={"Symbol": ticker,
+                                                    "SubmissionGroupTag": group_tag,
+                                                    "TaskType": "meta"})
+
+
     # Step 2: Submit the trade-data-enhancer job (dependent on polygon job)
     enhance_job_name = f"trade-data-enhancer-{ticker}-{group_tag}"
     print(f"Submitting trade-data-enhancer job: {enhance_job_name}")
