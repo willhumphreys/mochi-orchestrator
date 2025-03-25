@@ -142,6 +142,13 @@ class MochiBatchResources(Construct):
                 "memory": 2048,
                 "timeout_seconds": 600,
             },
+            {
+                "name": "data-metadata",
+                "image": "ghcr.io/willhumphreys/data-metadata:latest",
+                "vcpu": 1.0,
+                "memory": 2048,
+                "timeout_seconds": 3600,
+            }
         ]
 
         # Create task execution role
