@@ -174,13 +174,19 @@ def handler(event, context):
     agg_response = batch_client.submit_job(jobName=aggregate_job_name, dependsOn=[{'jobId': trades_job_id}],
                                            jobQueue=queue_name, jobDefinition="mochi-trades", containerOverrides={
             "command": ["-scenario", full_scenario, "-output_dir", "results", "-upload_to_s3", "-aggregate",
-                        "-s3_key_min", s3_key_min],
+                        "-s3_key_min", s3_key_min, "-scenario_key", metadata_key],
             'environment': [{'name': 'MOCHI_DATA_BUCKET', 'value': os.environ.get('PREPARED_BUCKET_NAME')},
                             {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
                             {'name': 'MOCHI_TRADERS_BUCKET', 'value': os.environ.get('TRADER_BUCKET_NAME')},
                             {'name': 'MOCHI_AGGREGATION_BUCKET', 'value': os.environ.get('MOCHI_AGGREGATION_BUCKET')},
                             {'name': 'MOCHI_AGGREGATION_BUCKET_STAGING',
-                             'value': os.environ.get('MOCHI_AGGREGATION_BUCKET_STAGING')}
+                             'value': os.environ.get('MOCHI_AGGREGATION_BUCKET_STAGING')},
+                            {
+                                'name': 'S3_TICKER-META_BUCKET',
+                                'value': os.environ.get(
+                                    'MOCHI_PROD_TICKER_META')},
+                            {'name': 'AWS_REGION',
+                             'value': 'eu-central-1'}
 
                             ]}, tags={"Scenario": full_scenario, "Symbol": symbol_file, "SubmissionGroupTag": group_tag,
                                       "TradeType": trade_type, "TaskType": "aggregation"})
