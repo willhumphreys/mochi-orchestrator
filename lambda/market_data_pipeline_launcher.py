@@ -4,8 +4,8 @@ import random
 
 import boto3
 
-from generate_s3_path_utils import generate_s3_path
 from do_all_s3_keys_exist import do_all_s3_keys_exist
+from generate_s3_path_utils import generate_s3_path
 
 
 def handler(event, context):
@@ -64,7 +64,6 @@ def handler(event, context):
     else:
         print(f"All data files for {ticker} already exist. Skipping Polygon job.")
 
-
     dependencies = []
     if 'polygon_job_id' in locals():
         # Only add the polygon job as a dependency if it was actually submitted
@@ -72,44 +71,33 @@ def handler(event, context):
     else:
         polygon_job_id = "skipped"
 
-
     # Step 1: Submit the polygon job (first in the chain)
     metadata_job_name = f"metadata-job-{ticker}-{group_tag}"
 
     print(f"Submitting job with name: {metadata_job_name}")
 
-
     # Submit the trades job (dependent on trade-data-enhancer-job)
-    trades_response = batch_client.submit_job(jobName=metadata_job_name, jobQueue=queue_name,
-                                              jobDefinition="data-metadata", dependsOn=[{'jobId': polygon_job_id}],
-                                              containerOverrides={
-                                                  "command": ["--s3-path", s3_key_min, "--ticker", ticker
+    metadata_response = batch_client.submit_job(jobName=metadata_job_name, jobQueue=queue_name,
+                                                jobDefinition="data-metadata", dependsOn=[{'jobId': polygon_job_id}],
+                                                containerOverrides={
+                                                    "command": ["--s3-path", s3_key_min, "--ticker", ticker
 
-                                                              ], 'environment': [{'name': 'AWS_REGION',
-                                                                                            'value': 'eu-central-1'},
-                                                                                           {
-                                                                                               'name': 'S3_BUCKET',
-                                                                                               'value': os.environ.get('RAW_BUCKET_NAME')},
-                                                                                           {
-                                                                                               'name': 'S3_UPLOAD_BUCKET',
-                                                                                               'value': os.environ.get(
-                                                                                                   'MOCHI_PROD_TICKER_META')}
+                                                                ],
+                                                    'environment': [{'name': 'AWS_REGION', 'value': 'eu-central-1'},
+                                                        {'name': 'S3_BUCKET',
+                                                         'value': os.environ.get('RAW_BUCKET_NAME')},
+                                                        {'name': 'S3_UPLOAD_BUCKET',
+                                                         'value': os.environ.get('MOCHI_PROD_TICKER_META')}
 
-
-
-                                                                                           ]},
-                                              tags={"Symbol": ticker,
-                                                    "SubmissionGroupTag": group_tag,
-                                                    "TaskType": "meta"})
-
+                                                    ]}, tags={"Symbol": ticker, "SubmissionGroupTag": group_tag,
+                                                              "TaskType": "meta"})
 
     # Step 2: Submit the trade-data-enhancer job (dependent on polygon job)
     enhance_job_name = f"trade-data-enhancer-{ticker}-{group_tag}"
     print(f"Submitting trade-data-enhancer job: {enhance_job_name}")
 
     enhance_response = batch_client.submit_job(jobName=enhance_job_name, jobQueue=queue_name,
-                                               jobDefinition="trade-data-enhancer",
-                                               dependsOn=dependencies,
+                                               jobDefinition="trade-data-enhancer", dependsOn=dependencies,
                                                containerOverrides={
                                                    'command': ["python", "src/enhancer.py", "--ticker", ticker,
                                                                "--provider", "polygon", "--s3_key_min", s3_key_min,
@@ -118,7 +106,8 @@ def handler(event, context):
                                                        {'name': 'INPUT_BUCKET_NAME',
                                                         'value': os.environ.get('RAW_BUCKET_NAME')},
                                                        {'name': 'OUTPUT_BUCKET_NAME',
-                                                        'value': os.environ.get('PREPARED_BUCKET_NAME')}]},
+                                                        'value': os.environ.get('PREPARED_BUCKET_NAME')},
+                                                       {'name': 'AWS_REGION', 'value': 'eu-central-1'}, ]},
                                                tags={"Ticker": ticker, "SubmissionGroupTag": group_tag,
                                                      "TaskType": "trade-data-enhancer"})
 
@@ -147,12 +136,16 @@ def handler(event, context):
     print(f"Submitting job with name: {trades_job_name} with scenario: {full_scenario}")
 
     # Submit the trades job (dependent on trade-data-enhancer-job)
+    metadata_key = ticker + ".json"
+
     trades_response = batch_client.submit_job(jobName=trades_job_name, jobQueue=queue_name,
                                               jobDefinition="mochi-trades", dependsOn=[{'jobId': enhance_job_id}],
                                               containerOverrides={
-                                                  "command": ["-scenario", full_scenario, "-output_dir", "results",
+                                                  "command": [
+                                                      "-scenario", full_scenario, "-output_dir", "results",
                                                               "-write_trades", "-upload_to_s3", "-s3_key_min",
-                                                              s3_key_min], 'environment': [{'name': 'MOCHI_DATA_BUCKET',
+                                                              s3_key_min, "-scenario_key", metadata_key
+                                                              ], 'environment': [{'name': 'MOCHI_DATA_BUCKET',
                                                                                             'value': os.environ.get(
                                                                                                 'PREPARED_BUCKET_NAME')},
                                                                                            {
@@ -162,7 +155,13 @@ def handler(event, context):
                                                                                            {
                                                                                                'name': 'MOCHI_TRADERS_BUCKET',
                                                                                                'value': os.environ.get(
-                                                                                                   'TRADER_BUCKET_NAME')}]},
+                                                                                                   'TRADER_BUCKET_NAME')},
+                                                                                           {
+                                                                                               'name': 'S3_TICKER-META_BUCKET',
+                                                                                               'value': os.environ.get(
+                                                                                                   'MOCHI_PROD_TICKER_META')},
+                                                                                           {'name': 'AWS_REGION',
+                                                                                            'value': 'eu-central-1'}, ]},
                                               tags={"Scenario": full_scenario, "Symbol": symbol_file,
                                                     "SubmissionGroupTag": group_tag, "TradeType": trade_type,
                                                     "TaskType": "trade"})
