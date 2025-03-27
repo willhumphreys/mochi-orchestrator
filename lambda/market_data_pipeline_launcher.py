@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import datetime
 
 import boto3
 
@@ -24,7 +25,8 @@ def handler(event, context):
                   "vanilla", "watermelon", "xigua", "yam", "zucchini"]
 
     # Generate a random group tag for all jobs in this execution
-    group_tag = random.choice(easy_words)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    group_tag = f"{random.choice(easy_words)}-{timestamp}"
     print(f"Using group tag: {group_tag} for all jobs in this execution")
 
     # Extract ticker from event
@@ -71,26 +73,7 @@ def handler(event, context):
     else:
         polygon_job_id = "skipped"
 
-    # Step 1: Submit the polygon job (first in the chain)
-    metadata_job_name = f"metadata-job-{ticker}-{group_tag}"
 
-    print(f"Submitting job with name: {metadata_job_name}")
-
-    # Submit the trades job (dependent on trade-data-enhancer-job)
-    metadata_response = batch_client.submit_job(jobName=metadata_job_name, jobQueue=queue_name,
-                                                jobDefinition="data-metadata", dependsOn=[{'jobId': polygon_job_id}],
-                                                containerOverrides={
-                                                    "command": ["--s3-path", s3_key_min, "--ticker", ticker
-
-                                                                ],
-                                                    'environment': [{'name': 'AWS_REGION', 'value': 'eu-central-1'},
-                                                        {'name': 'S3_BUCKET',
-                                                         'value': os.environ.get('RAW_BUCKET_NAME')},
-                                                        {'name': 'S3_UPLOAD_BUCKET',
-                                                         'value': os.environ.get('MOCHI_PROD_TICKER_META')}
-
-                                                    ]}, tags={"Symbol": ticker, "SubmissionGroupTag": group_tag,
-                                                              "TaskType": "meta"})
 
     # Step 2: Submit the trade-data-enhancer job (dependent on polygon job)
     enhance_job_name = f"trade-data-enhancer-{ticker}-{group_tag}"
@@ -114,163 +97,184 @@ def handler(event, context):
     enhance_job_id = enhance_response['jobId']
     print(f"Submitted trade-data-enhancer job with ID: {enhance_job_id}")
 
-    # Step 3: Submit trading jobs (dependent on trade-data-enhancer job)
-    # Single hardcoded scenario
-    scenario_template = 's_-3000..-100..400___l_100..7500..400___o_-800..800..100___d_14..14..7___out_8..8..4'
 
-    # Format ticker for scenario
-    symbol_file = f"{ticker}-1mF.csv"
-    base_symbol = ticker
 
-    # Build the full scenario string
-    full_scenario = f"{scenario_template}___{symbol_file}"
+    # Step 1: Submit the polygon job (first in the chain)
+    metadata_job_name = f"metadata-job-{ticker}-{group_tag}"
 
-    # Determine trade type
-    trade_type = "long"  # Default to long since our scenario doesn't have "short"
-
-    # Generate job names
-    trades_job_name = f"Trades{ticker}-{group_tag}"
-    aggregate_job_name = f"Aggregate{ticker}-{group_tag}"
-    graphs_job_name = f"Graphs{ticker}-"
-
-    print(f"Submitting job with name: {trades_job_name} with scenario: {full_scenario}")
+    print(f"Submitting job with name: {metadata_job_name}")
 
     # Submit the trades job (dependent on trade-data-enhancer-job)
-    metadata_key = ticker + ".json"
+    metadata_response = batch_client.submit_job(jobName=metadata_job_name, jobQueue=queue_name,
+                                                jobDefinition="data-metadata", dependsOn=[{'jobId': polygon_job_id}, {'jobId': enhance_job_id}],
+                                                containerOverrides={
+                                                    "command": ["--s3_key_min", s3_key_min, "--s3-path", s3_key_hour,
+                                                                "--ticker", ticker, "--group_tag", group_tag
 
-    trades_response = batch_client.submit_job(jobName=trades_job_name, jobQueue=queue_name,
-                                              jobDefinition="mochi-trades", dependsOn=[{'jobId': enhance_job_id}],
-                                              containerOverrides={
-                                                  "command": [
-                                                      "-scenario", full_scenario, "-output_dir", "results",
-                                                              "-write_trades", "-upload_to_s3", "-s3_key_min",
-                                                              s3_key_min, "-scenario_key", metadata_key
-                                                              ], 'environment': [{'name': 'MOCHI_DATA_BUCKET',
-                                                                                            'value': os.environ.get(
-                                                                                                'PREPARED_BUCKET_NAME')},
-                                                                                           {
-                                                                                               'name': 'MOCHI_TRADES_BUCKET',
-                                                                                               'value': os.environ.get(
-                                                                                                   'TRADES_BUCKET_NAME')},
-                                                                                           {
-                                                                                               'name': 'MOCHI_TRADERS_BUCKET',
-                                                                                               'value': os.environ.get(
-                                                                                                   'TRADER_BUCKET_NAME')},
-                                                                                           {
-                                                                                               'name': 'S3_TICKER-META_BUCKET',
-                                                                                               'value': os.environ.get(
-                                                                                                   'MOCHI_PROD_TICKER_META')},
-                                                                                           {'name': 'AWS_REGION',
-                                                                                            'value': 'eu-central-1'}, ]},
-                                              tags={"Scenario": full_scenario, "Symbol": symbol_file,
-                                                    "SubmissionGroupTag": group_tag, "TradeType": trade_type,
-                                                    "TaskType": "trade"})
+                                                                ],
+                                                    'environment': [
+                                                                    {'name': 'AWS_REGION', 'value': 'eu-central-1'},
+                                                                    {'name': 'S3_BUCKET',
+                                                                     'value': os.environ.get('RAW_BUCKET_NAME')},
+                                                                    {'name': 'S3_UPLOAD_BUCKET',
+                                                                     'value': os.environ.get('MOCHI_PROD_TICKER_META')},
+                                                                    {'name': 'MOCHI_DATA_BUCKET',
+                                                                     'value': os.environ.get('PREPARED_BUCKET_NAME')},
+                                                                    {'name': 'MOCHI_TRADES_BUCKET',
+                                                                     'value': os.environ.get('TRADES_BUCKET_NAME')},
+                                                                    {'name': 'MOCHI_TRADERS_BUCKET',
+                                                                     'value': os.environ.get('TRADER_BUCKET_NAME')},
+                                                                    {'name': 'S3_TICKER-META_BUCKET',
+                                                                     'value': os.environ.get('MOCHI_PROD_TICKER_META')},
+                                                                    {'name': 'MOCHI_AGGREGATION_BUCKET', 'value': os.environ.get('MOCHI_AGGREGATION_BUCKET')},
+                                                                    {'name': 'MOCHI_AGGREGATION_BUCKET_STAGING',
+                                                                        'value': os.environ.get('MOCHI_AGGREGATION_BUCKET_STAGING')},
 
-    trades_job_id = trades_response['jobId']
-    print(f"Submitted trades job with ID: {trades_job_id}")
+                                                                    {'name': 'MOCHI_GRAPHS_BUCKET', 'value': os.environ.get('MOCHI_GRAPHS_BUCKET')},
+                                                                    {'name': 'MOCHI_PROD_TRADE_EXTRACTS', 'value': os.environ.get('MOCHI_PROD_TRADE_EXTRACTS')}
 
-    # Submit aggregation job
-    print(f"Submitting aggregation job with name: {aggregate_job_name} with scenario: {full_scenario}")
-    agg_response = batch_client.submit_job(jobName=aggregate_job_name, dependsOn=[{'jobId': trades_job_id}],
-                                           jobQueue=queue_name, jobDefinition="mochi-trades", containerOverrides={
-            "command": ["-scenario", full_scenario, "-output_dir", "results", "-upload_to_s3", "-aggregate",
-                        "-s3_key_min", s3_key_min, "-scenario_key", metadata_key],
-            'environment': [{'name': 'MOCHI_DATA_BUCKET', 'value': os.environ.get('PREPARED_BUCKET_NAME')},
-                            {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
-                            {'name': 'MOCHI_TRADERS_BUCKET', 'value': os.environ.get('TRADER_BUCKET_NAME')},
-                            {'name': 'MOCHI_AGGREGATION_BUCKET', 'value': os.environ.get('MOCHI_AGGREGATION_BUCKET')},
-                            {'name': 'MOCHI_AGGREGATION_BUCKET_STAGING',
-                             'value': os.environ.get('MOCHI_AGGREGATION_BUCKET_STAGING')},
-                            {
-                                'name': 'S3_TICKER-META_BUCKET',
-                                'value': os.environ.get(
-                                    'MOCHI_PROD_TICKER_META')},
-                            {'name': 'AWS_REGION',
-                             'value': 'eu-central-1'}
 
-                            ]}, tags={"Scenario": full_scenario, "Symbol": symbol_file, "SubmissionGroupTag": group_tag,
-                                      "TradeType": trade_type, "TaskType": "aggregation"})
 
-    agg_job_id = agg_response['jobId']
-    print(f"Submitted aggregation job with ID: {agg_job_id}")
+                                                                    ]},
 
-    # Submit graph jobs
-    best_traders_job_id = None
 
-    for script in ["years.r", "stops.r", "bestTraders.r"]:
-        job_name = f"{graphs_job_name}{script.split('.')[0]}-{group_tag}"
-        just_scenario = full_scenario.rsplit('___', 1)[0]
-        scenario_value = f"{base_symbol}_polygon_min/{just_scenario}/aggregated-{base_symbol}_polygon_min_{just_scenario}_aggregationQueryTemplate-all.csv.lzo"
-        symbol_with_provider = f"{base_symbol}_polygon_min"
 
-        print(f"Submitting graph job with name: {job_name} with scenario: {scenario_value}")
-        graph_response = batch_client.submit_job(jobName=job_name, dependsOn=[{'jobId': agg_job_id}],
-                                                 jobQueue=queue_name, jobDefinition="r-graphs",
-                                                 containerOverrides={"command": [scenario_value, script],
-                                                                     'environment': [
-                                                                         {'name': 'MOCHI_AGGREGATION_BUCKET',
-                                                                          'value': os.environ.get(
-                                                                              'MOCHI_AGGREGATION_BUCKET')},
-                                                                         {'name': 'MOCHI_GRAPHS_BUCKET',
-                                                                          'value': os.environ.get(
-                                                                              'MOCHI_GRAPHS_BUCKET')}
+                                                tags={"Symbol": ticker, "SubmissionGroupTag": group_tag,
+                                                      "TaskType": "meta"})
 
-                                                                     ]},
-                                                 tags={"Scenario": just_scenario, "Symbol": base_symbol,
-                                                       "SubmissionGroupTag": group_tag, "TradeType": trade_type,
-                                                       "TaskType": "graph"})
 
-        if script == "bestTraders.r":
-            best_traders_job_id = graph_response['jobId']
-            print(f"Submitted bestTraders.r graph job with ID: {best_traders_job_id}")
 
-    # Submit trade-extract job
-    trade_extract_job_name = f"trade-extract-{base_symbol}-{group_tag}"
-    print(f"Submitting trade-extract job with name: {trade_extract_job_name}")
-    trade_extract_response = batch_client.submit_job(jobName=trade_extract_job_name, jobQueue=queue_name,
-                                                     jobDefinition="trade-extract",
-                                                     dependsOn=[{'jobId': best_traders_job_id}], containerOverrides={
-            "command": ["--symbol", symbol_with_provider, "--scenario", scenario_template],
-            'environment': [{'name': 'MOCHI_GRAPHS_BUCKET', 'value': os.environ.get('MOCHI_GRAPHS_BUCKET')},
-                            {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
-                            {'name': 'MOCHI_PROD_TRADE_EXTRACTS', 'value': os.environ.get('MOCHI_PROD_TRADE_EXTRACTS')}
-
-                            ]}, tags={"Scenario": scenario_template, "Symbol": base_symbol,
-                                      "SubmissionGroupTag": group_tag, "TaskType": "trade-extract"})
-
-    trade_extract_job_id = trade_extract_response['jobId']
-    print(f"Submitted trade-extract job with ID: {trade_extract_job_id}")
-
-    # Submit py-trade-lens job
-    py_trade_lens_job_name = f"py-trade-lens-{base_symbol}-{group_tag}"
-    print(f"Submitting py-trade-lens job with name: {py_trade_lens_job_name}")
-    py_trade_lens_response = batch_client.submit_job(jobName=py_trade_lens_job_name, jobQueue=queue_name,
-                                                     jobDefinition="py-trade-lens",
-                                                     dependsOn=[{'jobId': trade_extract_job_id}], containerOverrides={
-            "command": ["--symbol", symbol_with_provider, "--scenario", scenario_template]},
-                                                     tags={"Scenario": scenario_template, "Symbol": base_symbol,
-                                                           "SubmissionGroupTag": group_tag,
-                                                           "TaskType": "py-trade-lens"})
-
-    py_trade_lens_job_id = py_trade_lens_response['jobId']
-    print(f"Submitted py-trade-lens job with ID: {py_trade_lens_job_id}")
-
-    # Submit trade-summary job
-    trade_summary_job_name = f"trade_summary-{base_symbol}-{group_tag}"
-    print(f"Submitting trade-summary job with name: {trade_summary_job_name}")
-    trade_summary_response = batch_client.submit_job(jobName=trade_summary_job_name, jobQueue=queue_name,
-                                                     jobDefinition="trade-summary",
-                                                     dependsOn=[{'jobId': py_trade_lens_job_id}],
-                                                     containerOverrides={"command": ["--symbol", symbol_with_provider]},
-                                                     tags={"Symbol": base_symbol, "SubmissionGroupTag": group_tag,
-                                                           "TaskType": "trade_summary"})
-
-    print(f"Submitted trade-summary job with ID: {trade_summary_response['jobId']}")
-
-    # Return the results
     return {'statusCode': 200, 'body': json.dumps(
         {'message': f'Successfully submitted job chain for {ticker}', 'polygonJobId': polygon_job_id,
-         'enhanceJobId': enhance_job_id, 'tradesJobId': trades_job_id, 'groupTag': group_tag})}
+         'enhanceJobId': enhance_job_id, 'groupTag': group_tag})}
+
+    #  # # Step 3: Submit trading jobs (dependent on trade-data-enhancer job)  # # Single hardcoded scenario  # scenario_template = 's_-3000..-100..400___l_100..7500..400___o_-800..800..100___d_14..14..7___out_8..8..4'  #  # # Format ticker for scenario  # symbol_file = f"{ticker}-1mF.csv"  # base_symbol = ticker  #  # # Build the full scenario string  # full_scenario = f"{scenario_template}___{symbol_file}"  #  # # Determine trade type  # trade_type = "long"  # Default to long since our scenario doesn't have "short"  #  # # Generate job names  # trades_job_name = f"Trades{ticker}-{group_tag}"  # aggregate_job_name = f"Aggregate{ticker}-{group_tag}"  # graphs_job_name = f"Graphs{ticker}-"  #  # print(f"Submitting job with name: {trades_job_name} with scenario: {full_scenario}")  #  # # Submit the trades job (dependent on trade-data-enhancer-job)  # metadata_key = ticker + ".json"  #  # return put_trade_job_on_queue(aggregate_job_name, base_symbol, batch_client, enhance_job_id, full_scenario,  #                               graphs_job_name, group_tag, metadata_key, polygon_job_id, queue_name, s3_key_min,  #                               scenario_template, symbol_file, ticker, trade_type, trades_job_name)
+
+
+# def put_trade_job_on_queue(aggregate_job_name, base_symbol, batch_client, enhance_job_id, full_scenario,
+#                            graphs_job_name, group_tag, metadata_key, polygon_job_id, queue_name, s3_key_min,
+#                            scenario_template, symbol_file, ticker, trade_type, trades_job_name):
+#     trades_response = batch_client.submit_job(jobName=trades_job_name, jobQueue=queue_name,
+#                                               jobDefinition="mochi-trades", dependsOn=[{'jobId': enhance_job_id}],
+#                                               containerOverrides={
+#                                                   "command": [
+#                                                       "-scenario", full_scenario, "-output_dir", "results",
+#                                                       "-write_trades", "-upload_to_s3", "-s3_key_min",
+#                                                       s3_key_min, "-scenario_key", metadata_key
+#                                                   ], 'environment': [{'name': 'MOCHI_DATA_BUCKET',
+#                                                                       'value': os.environ.get(
+#                                                                           'PREPARED_BUCKET_NAME')},
+#                                                                      {
+#                                                                          'name': 'MOCHI_TRADES_BUCKET',
+#                                                                          'value': os.environ.get(
+#                                                                              'TRADES_BUCKET_NAME')},
+#                                                                      {
+#                                                                          'name': 'MOCHI_TRADERS_BUCKET',
+#                                                                          'value': os.environ.get(
+#                                                                              'TRADER_BUCKET_NAME')},
+#                                                                      {
+#                                                                          'name': 'S3_TICKER-META_BUCKET',
+#                                                                          'value': os.environ.get(
+#                                                                              'MOCHI_PROD_TICKER_META')},
+#                                                                      {'name': 'AWS_REGION',
+#                                                                       'value': 'eu-central-1'}, ]},
+#                                               tags={"Scenario": full_scenario, "Symbol": symbol_file,
+#                                                     "SubmissionGroupTag": group_tag, "TradeType": trade_type,
+#                                                     "TaskType": "trade"})
+#     trades_job_id = trades_response['jobId']
+#     print(f"Submitted trades job with ID: {trades_job_id}")
+#     # Submit aggregation job
+#     print(f"Submitting aggregation job with name: {aggregate_job_name} with scenario: {full_scenario}")
+#     agg_response = batch_client.submit_job(jobName=aggregate_job_name, dependsOn=[{'jobId': trades_job_id}],
+#                                            jobQueue=queue_name, jobDefinition="mochi-trades", containerOverrides={
+#             "command": ["-scenario", full_scenario, "-output_dir", "results", "-upload_to_s3", "-aggregate",
+#                         "-s3_key_min", s3_key_min, "-scenario_key", metadata_key],
+#             'environment': [{'name': 'MOCHI_DATA_BUCKET', 'value': os.environ.get('PREPARED_BUCKET_NAME')},
+#                             {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
+#                             {'name': 'MOCHI_TRADERS_BUCKET', 'value': os.environ.get('TRADER_BUCKET_NAME')},
+#                             {'name': 'MOCHI_AGGREGATION_BUCKET', 'value': os.environ.get('MOCHI_AGGREGATION_BUCKET')},
+#                             {'name': 'MOCHI_AGGREGATION_BUCKET_STAGING',
+#                              'value': os.environ.get('MOCHI_AGGREGATION_BUCKET_STAGING')},
+#                             {
+#                                 'name': 'S3_TICKER-META_BUCKET',
+#                                 'value': os.environ.get(
+#                                     'MOCHI_PROD_TICKER_META')},
+#                             {'name': 'AWS_REGION',
+#                              'value': 'eu-central-1'}
+#
+#                             ]}, tags={"Scenario": full_scenario, "Symbol": symbol_file, "SubmissionGroupTag": group_tag,
+#                                       "TradeType": trade_type, "TaskType": "aggregation"})
+#     agg_job_id = agg_response['jobId']
+#     print(f"Submitted aggregation job with ID: {agg_job_id}")
+#     # Submit graph jobs
+#     best_traders_job_id = None
+#     for script in ["years.r", "stops.r", "bestTraders.r"]:
+#         job_name = f"{graphs_job_name}{script.split('.')[0]}-{group_tag}"
+#         just_scenario = full_scenario.rsplit('___', 1)[0]
+#         scenario_value = f"{base_symbol}_polygon_min/{just_scenario}/aggregated-{base_symbol}_polygon_min_{just_scenario}_aggregationQueryTemplate-all.csv.lzo"
+#         symbol_with_provider = f"{base_symbol}_polygon_min"
+#
+#         print(f"Submitting graph job with name: {job_name} with scenario: {scenario_value}")
+#         graph_response = batch_client.submit_job(jobName=job_name, dependsOn=[{'jobId': agg_job_id}],
+#                                                  jobQueue=queue_name, jobDefinition="r-graphs",
+#                                                  containerOverrides={"command": [scenario_value, script],
+#                                                                      'environment': [
+#                                                                          {'name': 'MOCHI_AGGREGATION_BUCKET',
+#                                                                           'value': os.environ.get(
+#                                                                               'MOCHI_AGGREGATION_BUCKET')},
+#                                                                          {'name': 'MOCHI_GRAPHS_BUCKET',
+#                                                                           'value': os.environ.get(
+#                                                                               'MOCHI_GRAPHS_BUCKET')}
+#
+#                                                                      ]},
+#                                                  tags={"Scenario": just_scenario, "Symbol": base_symbol,
+#                                                        "SubmissionGroupTag": group_tag, "TradeType": trade_type,
+#                                                        "TaskType": "graph"})
+#
+#         if script == "bestTraders.r":
+#             best_traders_job_id = graph_response['jobId']
+#             print(f"Submitted bestTraders.r graph job with ID: {best_traders_job_id}")
+#     # Submit trade-extract job
+#     trade_extract_job_name = f"trade-extract-{base_symbol}-{group_tag}"
+#     print(f"Submitting trade-extract job with name: {trade_extract_job_name}")
+#     trade_extract_response = batch_client.submit_job(jobName=trade_extract_job_name, jobQueue=queue_name,
+#                                                      jobDefinition="trade-extract",
+#                                                      dependsOn=[{'jobId': best_traders_job_id}], containerOverrides={
+#             "command": ["--symbol", symbol_with_provider, "--scenario", scenario_template],
+#             'environment': [{'name': 'MOCHI_GRAPHS_BUCKET', 'value': os.environ.get('MOCHI_GRAPHS_BUCKET')},
+#                             {'name': 'MOCHI_TRADES_BUCKET', 'value': os.environ.get('TRADES_BUCKET_NAME')},
+#                             {'name': 'MOCHI_PROD_TRADE_EXTRACTS', 'value': os.environ.get('MOCHI_PROD_TRADE_EXTRACTS')}
+#
+#                             ]}, tags={"Scenario": scenario_template, "Symbol": base_symbol,
+#                                       "SubmissionGroupTag": group_tag, "TaskType": "trade-extract"})
+#     trade_extract_job_id = trade_extract_response['jobId']
+#     print(f"Submitted trade-extract job with ID: {trade_extract_job_id}")
+#     # Submit py-trade-lens job
+#     py_trade_lens_job_name = f"py-trade-lens-{base_symbol}-{group_tag}"
+#     print(f"Submitting py-trade-lens job with name: {py_trade_lens_job_name}")
+#     py_trade_lens_response = batch_client.submit_job(jobName=py_trade_lens_job_name, jobQueue=queue_name,
+#                                                      jobDefinition="py-trade-lens",
+#                                                      dependsOn=[{'jobId': trade_extract_job_id}], containerOverrides={
+#             "command": ["--symbol", symbol_with_provider, "--scenario", scenario_template]},
+#                                                      tags={"Scenario": scenario_template, "Symbol": base_symbol,
+#                                                            "SubmissionGroupTag": group_tag,
+#                                                            "TaskType": "py-trade-lens"})
+#     py_trade_lens_job_id = py_trade_lens_response['jobId']
+#     print(f"Submitted py-trade-lens job with ID: {py_trade_lens_job_id}")
+#     # Submit trade-summary job
+#     trade_summary_job_name = f"trade_summary-{base_symbol}-{group_tag}"
+#     print(f"Submitting trade-summary job with name: {trade_summary_job_name}")
+#     trade_summary_response = batch_client.submit_job(jobName=trade_summary_job_name, jobQueue=queue_name,
+#                                                      jobDefinition="trade-summary",
+#                                                      dependsOn=[{'jobId': py_trade_lens_job_id}],
+#                                                      containerOverrides={"command": ["--symbol", symbol_with_provider]},
+#                                                      tags={"Symbol": base_symbol, "SubmissionGroupTag": group_tag,
+#                                                            "TaskType": "trade_summary"})
+#     print(f"Submitted trade-summary job with ID: {trade_summary_response['jobId']}")
+#     # Return the results
+#     return {'statusCode': 200, 'body': json.dumps(
+#         {'message': f'Successfully submitted job chain for {ticker}', 'polygonJobId': polygon_job_id,
+#          'enhanceJobId': enhance_job_id, 'tradesJobId': trades_job_id, 'groupTag': group_tag})}
 
 
 def extract_arguments_from_event(event):

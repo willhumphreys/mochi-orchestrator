@@ -53,7 +53,6 @@ class MochiComputeStack(Stack):
             }
         )
 
-
         lambda_function.add_to_role_policy(iam.PolicyStatement(
             actions=[
                 "batch:SubmitJob",

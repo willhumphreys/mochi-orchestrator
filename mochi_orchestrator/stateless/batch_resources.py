@@ -166,8 +166,10 @@ class MochiBatchResources(Construct):
             assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
             managed_policies=[
                 iam.ManagedPolicy.from_aws_managed_policy_name("AmazonS3FullAccess"),
-                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonAthenaFullAccess")
+                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonAthenaFullAccess"),
+                iam.ManagedPolicy.from_aws_managed_policy_name("AWSBatchFullAccess")
             ]
+
 
         )
 
