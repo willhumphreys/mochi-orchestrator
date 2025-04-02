@@ -222,14 +222,19 @@ class MochiStorageStack(Stack):
             export_name='MochiStorage-TradePerformanceGraphsBucketArn'
         )
 
-        # Final trader ranking bucket
         self.buckets['final_trader_ranking'] = s3.Bucket(
             self,
             'FinalTraderRanking',
             bucket_name='mochi-prod-final-trader-ranking',
-            removal_policy=RemovalPolicy.RETAIN
-
+            removal_policy=RemovalPolicy.RETAIN,
+            cors=[s3.CorsRule(
+                allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST, s3.HttpMethods.HEAD],
+                allowed_origins=['*'],  # For production, specify actual origins instead of '*'
+                allowed_headers=['*'],
+                exposed_headers=['ETag']
+            )]
         )
+
         CfnOutput(
             self,
             'FinalTraderRankingBucketName',

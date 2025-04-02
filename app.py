@@ -7,6 +7,7 @@ from mochi_orchestrator.ecr_and_git_hub_deployment_stacks import EcrStack, GitHu
 # Updated imports using the new structure
 from mochi_orchestrator.stateful.storage_stack import MochiStorageStack
 from mochi_orchestrator.stateless.compute_stack import MochiComputeStack
+from mochi_orchestrator.stateless.dashboard_stack import MochiDashboardStack
 
 app = App()
 
@@ -75,6 +76,7 @@ trading_assistant_github_stack = GitHubStack(
 )
 trading_assistant_github_stack.add_dependency(oidc_provider_stack)  # Ensure the provider exists first
 
+dashboard_stack = MochiDashboardStack(app, "MochiDashboardStack")
 
 # Add common tags to all resources
 Tags.of(app).add("Project", "Mochi")

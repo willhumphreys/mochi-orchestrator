@@ -1,5 +1,6 @@
-aws-cdk-lib==2.184.1
 constructs>=10.0.0,<11.0.0
+aws-cdk-lib>=2.0.0
+aws-cdk.aws-amplify-alpha
 
 boto3~=1.37.15
 requests~=2.32.3
