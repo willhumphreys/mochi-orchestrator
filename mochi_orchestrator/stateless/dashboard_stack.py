@@ -19,7 +19,7 @@ class MochiDashboardStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # Create Cognito User Pool
-        user_pool = cognito.UserPool(
+        self.user_pool = cognito.UserPool(
             self, "MochiDashboardUserPool",
             user_pool_name="mochi-dashboard-users",
             self_sign_up_enabled=True,
@@ -46,7 +46,7 @@ class MochiDashboardStack(Stack):
         )
 
         # Add a domain to the user pool for hosted UI
-        domain = user_pool.add_domain(
+        domain = self.user_pool.add_domain(
             "MochiDashboardDomain",
             cognito_domain=cognito.CognitoDomainOptions(
                 domain_prefix="mochi-dashboard"
@@ -55,7 +55,7 @@ class MochiDashboardStack(Stack):
         )
 
         # Create a Cognito User Pool Client
-        client = user_pool.add_client(
+        client = self.user_pool.add_client(
             "MochiDashboardClient",
             auth_flows=cognito.AuthFlow(
                 user_password=True,
@@ -106,6 +106,18 @@ class MochiDashboardStack(Stack):
             )
         )
 
+        # Create an Identity Pool linked to your Cognito User Pool
+        identity_pool = cognito.CfnIdentityPool(
+            self, "MochiDashboardIdentityPool",
+            identity_pool_name="mochi_dashboard_identity_pool",
+            allow_unauthenticated_identities=False,  # Require authentication
+            cognito_identity_providers=[
+                cognito.CfnIdentityPool.CognitoIdentityProviderProperty(
+                    client_id=client.user_pool_client_id,
+                    provider_name=f"cognito-idp.{self.region}.amazonaws.com/{self.user_pool.user_pool_id}"
+                )
+            ]
+        )
 
         # Create Amplify app for the dashboard
         dashboard_app = App(
@@ -128,10 +140,11 @@ class MochiDashboardStack(Stack):
                         "build": {
                             "commands": [
                                 # Set environment variables for Vite
-                                f"export VITE_USER_POOL_ID={user_pool.user_pool_id}",
+                                f"export VITE_USER_POOL_ID={self.user_pool.user_pool_id}",
                                 f"export VITE_USER_POOL_CLIENT_ID={client.user_pool_client_id}",
                                 f"export VITE_REGION={self.region}",
                                 f"export VITE_COGNITO_DOMAIN=mochi-dashboard.auth.{self.region}.amazoncognito.com",
+                                f"export VITE_COGNITO_IDENTITY_POOL_ID={identity_pool.ref}",
                                 "npm run build"
                             ]
                         }
@@ -147,7 +160,64 @@ class MochiDashboardStack(Stack):
         # Add branch for main production deployment
         main_branch = dashboard_app.add_branch("master")
 
-        # Outputs
+        # Create IAM role for authenticated users
+        authenticated_role = iam.Role(
+            self, "MochiDashboardAuthenticatedRole",
+            assumed_by=iam.FederatedPrincipal(
+                "cognito-identity.amazonaws.com",
+                {
+                    "StringEquals": {
+                        "cognito-identity.amazonaws.com:aud": identity_pool.ref
+                    },
+                    "ForAnyValue:StringLike": {
+                        "cognito-identity.amazonaws.com:amr": "authenticated"
+                    }
+                },
+                "sts:AssumeRoleWithWebIdentity"
+            )
+        )
+
+        # Add S3 read permissions to the authenticated role
+        authenticated_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "s3:GetObject",
+                    "s3:ListBucket"
+                ],
+                resources=[
+                    # Replace with your specific bucket ARN
+                    "arn:aws:s3:::mochi-prod-final-trader-ranking",
+                    "arn:aws:s3:::mochi-prod-final-trader-ranking/*"
+                ]
+            )
+        )
+
+        # Attach roles to the Identity Pool
+        cognito.CfnIdentityPoolRoleAttachment(
+            self, "MochiDashboardIdentityPoolRoleAttachment",
+            identity_pool_id=identity_pool.ref,
+            roles={
+                "authenticated": authenticated_role.role_arn
+            }
+        )
+
+        # Pass the Identity Pool ID to your Amplify app environment
+        # (Add to your existing environment_variables in the dashboard_app)
+        environment_variables = {
+            # Existing variables
+            "VITE_IDENTITY_POOL_ID": identity_pool.ref,
+            # Other variables
+        }
+
+        # Export the Identity Pool ID as an output
+        CfnOutput(
+            self, "IdentityPoolId",
+            value=identity_pool.ref,
+            description="Cognito Identity Pool ID for AWS service access"
+        )
+
+
+# Outputs
         CfnOutput(
             self, "AmplifyAppId",
             value=dashboard_app.app_id,
@@ -163,7 +233,7 @@ class MochiDashboardStack(Stack):
         # Cognito Outputs
         CfnOutput(
             self, "UserPoolId",
-            value=user_pool.user_pool_id,
+            value=self.user_pool.user_pool_id,
             description="Cognito User Pool ID"
         )
 

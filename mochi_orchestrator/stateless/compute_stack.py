@@ -26,6 +26,7 @@ class MochiComputeStack(Stack):
                  mochi_prod_trade_performance_graphs: str = None,
                  mochi_prod_final_trader_ranking: str = None,
                  mochi_prod_ticker_meta: str = None,
+                 user_pool=None,
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -80,13 +81,35 @@ class MochiComputeStack(Stack):
             prepared_bucket.grant_read_write(lambda_function)
 
 
-
         # Create API Gateway
+        # Create API Gateway with CORS configuration
         api = apigateway.RestApi(
             self, "MochiBacktestApi",
             rest_api_name="Mochi Backtest Service",
             description="API for triggering backtest processes with ticker data",
+            # Enable CORS at the API level
+            default_cors_preflight_options = apigateway.CorsOptions(
+                allow_origins=['*'],  # Allow any origin
+                allow_methods=['POST', 'OPTIONS'],
+                allow_headers=[
+                    'Content-Type',
+                    'Authorization',
+                    'X-Amz-Date',
+                    'X-Api-Key',
+                    'X-Amz-Security-Token',
+                ],
+                allow_credentials=False,  # Must be False when using wildcard origins
+                max_age=Duration.seconds(300),  # How long the browser should cache preflight request results
+            )
+
         )
+
+        # Create a Cognito authorizer for the API
+        auth = apigateway.CognitoUserPoolsAuthorizer(
+            self, "MochiApiAuthorizer",
+            cognito_user_pools=[user_pool]  # Pass the user pool from your dashboard stack
+        )
+
 
         # Create resource and method
         backtest_resource = api.root.add_resource("backtest")
@@ -97,7 +120,11 @@ class MochiComputeStack(Stack):
             proxy=True,
         )
 
-        backtest_resource.add_method("POST", lambda_integration)
+        backtest_resource.add_method(
+            "POST", lambda_integration,
+            authorizer=auth,  # Apply the Cognito authorizer
+            authorization_type=apigateway.AuthorizationType.COGNITO  #
+        )
 
         # Add Lambda permission for API Gateway
         lambda_function.add_permission(

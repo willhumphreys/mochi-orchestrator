@@ -14,10 +14,13 @@ app = App()
 # Create storage stack first
 storage_stack = MochiStorageStack(app, "MochiStorageStack")
 
+dashboard_stack = MochiDashboardStack(app, "MochiDashboardStack")
+
 # Create compute stack and pass only the bucket names
 compute_stack = MochiComputeStack(
     app,
     "MochiComputeStack",
+    user_pool=dashboard_stack.user_pool,
     raw_bucket_name="mochi-prod-raw-historical-data",
     prepared_bucket_name="mochi-prod-prepared-historical-data",
     trades_bucket_name="mochi-prod-backtest-trades",
@@ -75,8 +78,6 @@ trading_assistant_github_stack = GitHubStack(
     deploy_role_name="TradingAssistantGitHubDeployRole"  # Give each role a unique name
 )
 trading_assistant_github_stack.add_dependency(oidc_provider_stack)  # Ensure the provider exists first
-
-dashboard_stack = MochiDashboardStack(app, "MochiDashboardStack")
 
 # Add common tags to all resources
 Tags.of(app).add("Project", "Mochi")
