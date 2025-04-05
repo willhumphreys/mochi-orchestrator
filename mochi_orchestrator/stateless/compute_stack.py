@@ -26,6 +26,7 @@ class MochiComputeStack(Stack):
                  mochi_prod_trade_performance_graphs: str = None,
                  mochi_prod_final_trader_ranking: str = None,
                  mochi_prod_ticker_meta: str = None,
+                 mochi_prod_live_trades: str = None,
                  user_pool=None,
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -50,7 +51,8 @@ class MochiComputeStack(Stack):
                 "MOCHI_PROD_TRADE_EXTRACTS": mochi_prod_trade_extracts or "",
                 "MOCHI_PROD_TRADE_PERFORMANCE_GRAPHS": mochi_prod_trade_performance_graphs or "",
                 "MOCHI_PROD_FINAL_TRADER_RANKING": mochi_prod_final_trader_ranking or "",
-                "MOCHI_PROD_TICKER_META": mochi_prod_ticker_meta or ""
+                "MOCHI_PROD_TICKER_META": mochi_prod_ticker_meta or "",
+                "MOCHI_PROD_LIVE_TRADES": mochi_prod_live_trades or ""
             }
         )
 

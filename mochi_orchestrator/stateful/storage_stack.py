@@ -226,13 +226,7 @@ class MochiStorageStack(Stack):
             self,
             'FinalTraderRanking',
             bucket_name='mochi-prod-final-trader-ranking',
-            removal_policy=RemovalPolicy.RETAIN,
-            cors=[s3.CorsRule(
-                allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST, s3.HttpMethods.HEAD],
-                allowed_origins=['*'],  # For production, specify actual origins instead of '*'
-                allowed_headers=['*'],
-                exposed_headers=['ETag']
-            )]
+            removal_policy=RemovalPolicy.RETAIN
         )
 
         CfnOutput(
@@ -270,6 +264,20 @@ class MochiStorageStack(Stack):
             "TickerMetaBucketArn",
             value=self.ticker_meta_bucket.bucket_arn,
             description="ARN of the ticker metadata bucket"
+        )
+
+        self.buckets['live_trades'] = s3.Bucket(
+            self,
+            'LiveTradesBucket',
+            bucket_name='mochi-prod-live-trades',
+            removal_policy=RemovalPolicy.RETAIN
+        )
+
+        CfnOutput(
+            self,
+            'LiveTradesBucketName',
+            value=self.buckets['live_trades'].bucket_name,
+            description='Name of the bucket to hold the live trades',
         )
 
 # Keep existing references for backward compatibility
