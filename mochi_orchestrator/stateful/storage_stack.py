@@ -226,7 +226,13 @@ class MochiStorageStack(Stack):
             self,
             'FinalTraderRanking',
             bucket_name='mochi-prod-final-trader-ranking',
-            removal_policy=RemovalPolicy.RETAIN
+            removal_policy=RemovalPolicy.RETAIN,
+            cors=[s3.CorsRule(
+            allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST, s3.HttpMethods.HEAD],
+            allowed_origins=['*'],  # For production, specify actual origins instead of '*'
+            allowed_headers=['*'],
+            exposed_headers=['ETag']
+            )]
         )
 
         CfnOutput(
@@ -270,7 +276,13 @@ class MochiStorageStack(Stack):
             self,
             'LiveTradesBucket',
             bucket_name='mochi-prod-live-trades',
-            removal_policy=RemovalPolicy.RETAIN
+            removal_policy=RemovalPolicy.RETAIN,
+            cors=[s3.CorsRule(
+                allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST, s3.HttpMethods.HEAD],
+                allowed_origins=['*'],  # For production, specify actual origins instead of '*'
+                allowed_headers=['*'],
+                exposed_headers=['ETag']
+            )]
         )
 
         CfnOutput(

@@ -187,7 +187,9 @@ class MochiDashboardStack(Stack):
                 resources=[
                     # Replace with your specific bucket ARN
                     "arn:aws:s3:::mochi-prod-final-trader-ranking",
-                    "arn:aws:s3:::mochi-prod-final-trader-ranking/*"
+                    "arn:aws:s3:::mochi-prod-final-trader-ranking/*",
+                    "arn:aws:s3:::mochi-prod-live-trades",
+                    "arn:aws:s3:::mochi-prod-live-trades/*"
                 ]
             )
         )
