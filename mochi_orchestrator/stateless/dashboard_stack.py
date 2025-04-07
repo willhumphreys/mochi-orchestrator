@@ -182,7 +182,10 @@ class MochiDashboardStack(Stack):
             iam.PolicyStatement(
                 actions=[
                     "s3:GetObject",
-                    "s3:ListBucket"
+                    "s3:ListBucket",
+                    "s3:PutObject",
+                    "s3:ListBucketVersions",
+                    "s3:GetObjectVersion"
                 ],
                 resources=[
                     # Replace with your specific bucket ARN

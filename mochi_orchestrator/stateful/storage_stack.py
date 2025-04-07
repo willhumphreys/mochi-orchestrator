@@ -277,6 +277,7 @@ class MochiStorageStack(Stack):
             'LiveTradesBucket',
             bucket_name='mochi-prod-live-trades',
             removal_policy=RemovalPolicy.RETAIN,
+            versioned=True,
             cors=[s3.CorsRule(
                 allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST, s3.HttpMethods.HEAD],
                 allowed_origins=['*'],  # For production, specify actual origins instead of '*'
