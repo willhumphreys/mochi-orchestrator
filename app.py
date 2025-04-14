@@ -4,10 +4,10 @@ import os
 from aws_cdk import App, Tags, Fn
 
 from mochi_orchestrator.ecr_and_git_hub_deployment_stacks import EcrStack, GitHubOIDCProviderStack, GitHubStack
-# Updated imports using the new structure
 from mochi_orchestrator.stateful.storage_stack import MochiStorageStack
 from mochi_orchestrator.stateless.compute_stack import MochiComputeStack
 from mochi_orchestrator.stateless.dashboard_stack import MochiDashboardStack
+from mochi_orchestrator.stateless.kubernetes_access_stack import KubernetesAccessStack
 
 app = App()
 
@@ -35,6 +35,11 @@ compute_stack = MochiComputeStack(
     mochi_prod_live_trades="mochi-prod-live-trades"
 )
 
+kubernetes_access_stack = KubernetesAccessStack(
+    app,
+    "MochiKubernetesAccessStack",
+    bucket_name="mochi-prod-live-trades"
+)
 
 # Create ECR stack
 ecr_stack = EcrStack(app, "EcrStack")

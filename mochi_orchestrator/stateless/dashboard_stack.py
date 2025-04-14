@@ -1,3 +1,5 @@
+import os
+
 from aws_cdk import (
     Stack,
     CfnOutput,
@@ -145,6 +147,7 @@ class MochiDashboardStack(Stack):
                                 f"export VITE_REGION={self.region}",
                                 f"export VITE_COGNITO_DOMAIN=mochi-dashboard.auth.{self.region}.amazoncognito.com",
                                 f"export VITE_COGNITO_IDENTITY_POOL_ID={identity_pool.ref}",
+                                f"export VITE_POLYGON_KEY={os.environ.get('POLYGON_API_KEY')}",
                                 "npm run build"
                             ]
                         }
