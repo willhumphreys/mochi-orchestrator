@@ -10,3 +10,4 @@ __pycache__
 cdk.out
 /.idea/httpRequests/*.json
 /.idea/httpRequests/http-requests-log.http
+.env
