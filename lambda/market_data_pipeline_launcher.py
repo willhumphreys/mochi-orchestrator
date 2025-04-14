@@ -2,6 +2,7 @@ import json
 import os
 import random
 import datetime
+import re
 
 import boto3
 
@@ -190,8 +191,4 @@ def sanitize_job_name(name):
     """
     # Replace colons with underscores or another valid character
     return re.sub(r'[^a-zA-Z0-9\-_]', '_', name)
-
-
-# Then use it when creating the job name
-polygon_job_name = sanitize_job_name(f"polygon-job-{ticker}-{group_tag}")
 
