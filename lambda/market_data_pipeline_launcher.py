@@ -42,7 +42,7 @@ def handler(event, context):
     print(f"Using queue: {queue_name}")
 
     # Step 1: Submit the polygon job (first in the chain)
-    polygon_job_name = f"polygon-job-{ticker}-{group_tag}"
+    polygon_job_name = sanitize_job_name(f"polygon-job-{ticker}-{group_tag}")
     print(f"Submitting polygon job: {polygon_job_name}")
 
     keys_to_check = [s3_key_min, s3_key_hour, s3_key_day]
@@ -76,7 +76,7 @@ def handler(event, context):
 
 
     # Step 2: Submit the trade-data-enhancer job (dependent on polygon job)
-    enhance_job_name = f"trade-data-enhancer-{ticker}-{group_tag}"
+    enhance_job_name = sanitize_job_name(f"trade-data-enhancer-{ticker}-{group_tag}")
     print(f"Submitting trade-data-enhancer job: {enhance_job_name}")
 
     enhance_response = batch_client.submit_job(jobName=enhance_job_name, jobQueue=queue_name,
@@ -98,9 +98,8 @@ def handler(event, context):
     print(f"Submitted trade-data-enhancer job with ID: {enhance_job_id}")
 
 
-
     # Step 1: Submit the polygon job (first in the chain)
-    metadata_job_name = f"metadata-job-{ticker}-{group_tag}"
+    metadata_job_name = sanitize_job_name(f"metadata-job-{ticker}-{group_tag}")
 
     print(f"Submitting job with name: {metadata_job_name}")
 
@@ -183,3 +182,16 @@ def extract_arguments_from_event(event):
     except Exception as e:
         print(f"Error extracting arguments from event body: {str(e)}")
         raise ValueError("Could not extract arguments from event body")
+
+def sanitize_job_name(name):
+    """
+    Sanitize job name by replacing invalid characters with valid ones.
+    AWS Batch job names can only contain letters, numbers, hyphens (-) and underscores (_).
+    """
+    # Replace colons with underscores or another valid character
+    return re.sub(r'[^a-zA-Z0-9\-_]', '_', name)
+
+
+# Then use it when creating the job name
+polygon_job_name = sanitize_job_name(f"polygon-job-{ticker}-{group_tag}")
+
