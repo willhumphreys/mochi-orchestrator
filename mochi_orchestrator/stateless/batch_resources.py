@@ -119,7 +119,7 @@ class MochiBatchResources(Construct):
                 "image": "ghcr.io/willhumphreys/py-trade-lens:latest",
                 "vcpu": 1.0,
                 "memory": 2048,
-                "timeout_seconds": 600,
+                "timeout_seconds": 14400,
             },
             {
                 "name": "r-graphs",
