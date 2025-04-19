@@ -108,8 +108,7 @@ def handler(event, context):
     metadata_response = batch_client.submit_job(jobName=metadata_job_name, jobQueue=queue_name,
                                                 jobDefinition="data-metadata", dependsOn=[{'jobId': polygon_job_id}, {'jobId': enhance_job_id}],
                                                 containerOverrides={
-                                                    "command": ["--s3-key-min", s3_key_min, "--s3-key-hour", s3_key_hour,
-                                                                "--ticker", ticker, "--group-tag", group_tag
+                                                    "command": ["--s3-key-min", s3_key_min, "--ticker", ticker, "--group-tag", group_tag
                                                                 ],
                                                     'environment': [
                                                                     {'name': 'AWS_REGION', 'value': 'eu-central-1'},
