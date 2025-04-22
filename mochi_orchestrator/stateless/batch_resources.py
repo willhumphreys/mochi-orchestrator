@@ -96,14 +96,14 @@ class MochiBatchResources(Construct):
             {
                 "name": "trade-data-enhancer",
                 "image": "ghcr.io/willhumphreys/trade-data-enhancer:latest",
-                "vcpu": 4.0,
+                "vcpu": 2.0,
                 "memory": 16384,
                 "timeout_seconds": 3600,
             },
             {
                 "name": "mochi-graphs",
                 "image": "ghcr.io/willhumphreys/r-graphs:latest",
-                "vcpu": 4.0,
+                "vcpu": 2.0,
                 "memory": 16384,
                 "timeout_seconds": 3600,
             },
