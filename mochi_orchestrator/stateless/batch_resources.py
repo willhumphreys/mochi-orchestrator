@@ -117,8 +117,8 @@ class MochiBatchResources(Construct):
             {
                 "name": "py-trade-lens",
                 "image": "ghcr.io/willhumphreys/py-trade-lens:latest",
-                "vcpu": 1.0,
-                "memory": 2048,
+                "vcpu": 4.0,
+                "memory": 30720,
                 "timeout_seconds": 14400,
             },
             {
