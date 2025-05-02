@@ -31,8 +31,8 @@ def handler(event, context):
     print(f"Using group tag: {group_tag} for all jobs in this execution")
 
     # Extract ticker from event
-    ticker, from_date, to_date = extract_arguments_from_event(event)
-    print(f"Processing ticker: {ticker} {from_date} {to_date}")
+    ticker, from_date, to_date, short_atr_period, long_atr_period, alpha = extract_arguments_from_event(event)
+    print(f"Processing ticker: {ticker} {from_date} {to_date} {short_atr_period} {long_atr_period} {alpha}")
 
     s3_key_min = generate_s3_path(ticker, "stocks", "polygon", timeframe="min")
     s3_key_hour = generate_s3_path(ticker, "stocks", "polygon", timeframe="hour")
@@ -177,8 +177,22 @@ def extract_arguments_from_event(event):
         else:
             raise ValueError("No to_date field found in request body")
 
-        # Return the values as separate items, not as a dictionary
-        return ticker, from_date, to_date
+        if 'shortATRPeriod' in body:
+            short_atr_period = body['shortATRPeriod']
+        else:
+            raise ValueError("No shortATRPeriod field found in request body")
+
+        if 'longATRPeriod' in body:
+            long_atr_period = body['longATRPeriod']
+        else:
+            raise ValueError("No longATRPeriod field found in request body")
+
+        if 'alpha' in body:
+            alpha = body['alpha']
+        else:
+            raise ValueError("No alpha field found in request body")
+
+        return ticker, from_date, to_date, short_atr_period, long_atr_period, alpha
     except Exception as e:
         print(f"Error extracting arguments from event body: {str(e)}")
         raise ValueError("Could not extract arguments from event body")
