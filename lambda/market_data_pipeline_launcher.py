@@ -85,8 +85,11 @@ def handler(event, context):
                                                containerOverrides={
                                                    'command': ["python", "src/enhancer.py", "--ticker", ticker,
                                                                "--provider", "polygon", "--s3_key_min", s3_key_min,
-                                                               "--s3_key_hour", s3_key_hour, "--s3_key_day",
-                                                               s3_key_day], 'environment': [
+                                                               "--s3_key_hour", s3_key_hour, "--s3_key_day", s3_key_day,
+                                                               "--short_atr_period", short_atr_period,
+                                                               "--long_atr_period", long_atr_period,
+                                                               "--alpha", alpha
+                                                               ], 'environment': [
                                                        {'name': 'INPUT_BUCKET_NAME',
                                                         'value': os.environ.get('RAW_BUCKET_NAME')},
                                                        {'name': 'OUTPUT_BUCKET_NAME',
