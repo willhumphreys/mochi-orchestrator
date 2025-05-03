@@ -211,9 +211,20 @@ class MochiBatchResources(Construct):
                         "cpuArchitecture": "X86_64"
                     }
                 },
-                retry_strategy={
-                    "attempts": 1
-                },
+                # --- Updated Retry Strategy ---
+                retry_strategy=batch.CfnJobDefinition.RetryStrategyProperty(
+                    attempts=3,  # Set maximum potential retries (e.g., 3 attempts = 1 initial + 2 retries)
+                    evaluate_on_exit=[
+                        # Rule 1: Retry specifically on Spot Interruption
+                        batch.CfnJobDefinition.EvaluateOnExitProperty(
+                            action="RETRY",
+                            # This reason is typically used for Fargate Spot interruptions
+                            on_reason="SpotInterruption"
+                        ),
+
+                    ]
+                ),
+                # --- End of Updated Retry Strategy ---
                 timeout={
                     "attemptDurationSeconds": job_def["timeout_seconds"]
                 }
