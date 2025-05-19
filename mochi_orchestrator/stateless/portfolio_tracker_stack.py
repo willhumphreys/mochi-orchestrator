@@ -43,11 +43,26 @@ class PortfolioTrackerStack(Stack):
             cpu=256
         )
 
+        # Add S3 permissions to the task for the specific bucket
+        task_definition.add_to_task_role_policy(
+            iam.PolicyStatement(
+                actions=["s3:*"],
+                resources=[
+                    "arn:aws:s3:::mochi-prod-portfolio-tracking",
+                    "arn:aws:s3:::mochi-prod-portfolio-tracking/*"
+                ],
+                effect=iam.Effect.ALLOW
+            )
+        )
+
         # Add container to the task definition
         container = task_definition.add_container(
             "PortfolioTrackerContainer",
             image=ecs.ContainerImage.from_registry("registry.gitlab.com/whumphreys/portfolio-tracker/main:latest"),
             logging=ecs.LogDrivers.aws_logs(stream_prefix="portfolio-tracker"),
+            environment={
+                "S3_BUCKET_NAME": "mochi-prod-portfolio-tracking"
+            },
             command=[
                 "--cik", "1067983",
                 "--which", "latest",
