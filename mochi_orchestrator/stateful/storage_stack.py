@@ -293,6 +293,30 @@ class MochiStorageStack(Stack):
             description='Name of the bucket to hold the live trades',
         )
 
-# Keep existing references for backward compatibility
+        # Portfolio Tracking bucket
+        self.buckets['portfolio_tracking'] = s3.Bucket(
+            self,
+            'PortfolioTrackingBucket',
+            bucket_name='mochi-prod-portfolio-tracking',
+            removal_policy=RemovalPolicy.RETAIN
+            # Add other configurations like versioning, cors if needed
+        )
+        CfnOutput(
+            self,
+            'PortfolioTrackingBucketName',
+            value=self.buckets['portfolio_tracking'].bucket_name,
+            description='Name of the portfolio tracking bucket',
+            export_name='MochiStorage-PortfolioTrackingBucketName'
+        )
+        CfnOutput(
+            self,
+            'PortfolioTrackingBucketArn',
+            value=self.buckets['portfolio_tracking'].bucket_arn,
+            description='ARN of the portfolio tracking bucket',
+            export_name='MochiStorage-PortfolioTrackingBucketArn'
+        )
+
+
+        # Keep existing references for backward compatibility
         self.input_bucket = self.buckets['raw_historical_data']
         self.output_bucket = self.buckets['prepared_historical_data']

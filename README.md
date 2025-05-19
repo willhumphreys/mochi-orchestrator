@@ -21,6 +21,7 @@ These stacks contain compute and processing resources with no persistent data. T
 
 Current stateless stacks:
 - `MochiComputeStack`: Contains Lambda functions, API Gateway, and AWS Batch resources
+- `PortfolioTrackerStack`: Contains ECS Fargate task scheduled to run a Docker image daily
 
 ## Deployment Commands
 
@@ -40,9 +41,19 @@ cdk deploy MochiStorageStack
 cdk deploy MochiComputeStack
 ````
 
+# Deploy only Portfolio Tracker stack
+```bash
+cdk deploy PortfolioTrackerStack
+````
+
 # Destroy stateless resources (SAFE)
 ```bash
 cdk destroy MochiComputeStack
+````
+
+# Destroy Portfolio Tracker stack (SAFE)
+```bash
+cdk destroy PortfolioTrackerStack
 ````
 
 # Destroy stateful resources (CAUTION!)

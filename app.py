@@ -8,6 +8,7 @@ from mochi_orchestrator.stateful.storage_stack import MochiStorageStack
 from mochi_orchestrator.stateless.compute_stack import MochiComputeStack
 from mochi_orchestrator.stateless.dashboard_stack import MochiDashboardStack
 from mochi_orchestrator.stateless.kubernetes_access_stack import KubernetesAccessStack
+from mochi_orchestrator.stateless.portfolio_tracker_stack import PortfolioTrackerStack
 
 app = App()
 
@@ -84,6 +85,12 @@ trading_assistant_github_stack = GitHubStack(
     deploy_role_name="TradingAssistantGitHubDeployRole"  # Give each role a unique name
 )
 trading_assistant_github_stack.add_dependency(oidc_provider_stack)  # Ensure the provider exists first
+
+# Create Portfolio Tracker stack
+portfolio_tracker_stack = PortfolioTrackerStack(
+    app,
+    "PortfolioTrackerStack"
+)
 
 # Add common tags to all resources
 Tags.of(app).add("Project", "Mochi")
