@@ -195,7 +195,9 @@ class MochiDashboardStack(Stack):
                     "arn:aws:s3:::mochi-prod-final-trader-ranking",
                     "arn:aws:s3:::mochi-prod-final-trader-ranking/*",
                     "arn:aws:s3:::mochi-prod-live-trades",
-                    "arn:aws:s3:::mochi-prod-live-trades/*"
+                    "arn:aws:s3:::mochi-prod-live-trades/*",
+                    "arn:aws:s3:::mochi-prod-portfolio-tracking",
+                    "arn:aws:s3:::mochi-prod-portfolio-tracking/*"
                 ]
             )
         )
