@@ -298,7 +298,13 @@ class MochiStorageStack(Stack):
             self,
             'PortfolioTrackingBucket',
             bucket_name='mochi-prod-portfolio-tracking',
-            removal_policy=RemovalPolicy.RETAIN
+            removal_policy=RemovalPolicy.RETAIN,
+            cors=[s3.CorsRule(
+                allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST, s3.HttpMethods.HEAD],
+                allowed_origins=['*'],  # For production, specify actual origins instead of '*'
+                allowed_headers=['*'],
+                exposed_headers=['ETag']
+            )]
             # Add other configurations like versioning, cors if needed
         )
         CfnOutput(
