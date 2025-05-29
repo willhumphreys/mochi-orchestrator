@@ -322,6 +322,34 @@ class MochiStorageStack(Stack):
             export_name='MochiStorage-PortfolioTrackingBucketArn'
         )
 
+        # Backtest params bucket
+        self.buckets['backtest_params'] = s3.Bucket(
+            self,
+            'BacktestParamsBucket',
+            bucket_name='mochi-prod-backtest-params',
+            removal_policy=RemovalPolicy.RETAIN,
+            cors=[s3.CorsRule(
+                allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST, s3.HttpMethods.HEAD],
+                allowed_origins=['*'],  # For production, specify actual origins instead of '*'
+                allowed_headers=['*'],
+                exposed_headers=['ETag']
+            )]
+        )
+        CfnOutput(
+            self,
+            'BacktestParamsBucketName',
+            value=self.buckets['backtest_params'].bucket_name,
+            description='Name of the backtest params bucket',
+            export_name='MochiStorage-BacktestParamsBucketName'
+        )
+        CfnOutput(
+            self,
+            'BacktestParamsBucketArn',
+            value=self.buckets['backtest_params'].bucket_arn,
+            description='ARN of the backtest params bucket',
+            export_name='MochiStorage-BacktestParamsBucketArn'
+        )
+
 
         # Keep existing references for backward compatibility
         self.input_bucket = self.buckets['raw_historical_data']

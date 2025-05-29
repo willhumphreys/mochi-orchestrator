@@ -10,6 +10,39 @@ from do_all_s3_keys_exist import do_all_s3_keys_exist
 from generate_s3_path_utils import generate_s3_path
 
 
+def upload_params_to_s3(params, bucket_name, file_name):
+    """
+    Upload parameters as a JSON file to the specified S3 bucket.
+
+    Args:
+        params: Dictionary of parameters to upload
+        bucket_name: Name of the S3 bucket
+        file_name: Name of the file to create in the bucket
+
+    Returns:
+        str: The S3 key (path) where the file was uploaded
+    """
+    s3_client = boto3.client('s3')
+
+    try:
+        # Convert parameters to JSON
+        params_json = json.dumps(params, indent=2)
+
+        # Upload the JSON to S3
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=file_name,
+            Body=params_json,
+            ContentType='application/json'
+        )
+
+        print(f"Successfully uploaded parameters to s3://{bucket_name}/{file_name}")
+        return file_name
+    except Exception as e:
+        print(f"Error uploading parameters to S3: {str(e)}")
+        raise e
+
+
 def handler(event, context):
     """
     Lambda function handler that processes market data and submits a chain of batch jobs.
@@ -25,9 +58,14 @@ def handler(event, context):
                   "mango", "nectarine", "orange", "papaya", "quince", "raspberry", "strawberry", "tangerine", "ugli",
                   "vanilla", "watermelon", "xigua", "yam", "zucchini"]
 
+    # Second set of easy words for group tagging (animal theme)
+    easy_words2 = ["ant", "bear", "cat", "dog", "elephant", "fox", "giraffe", "hippo", "iguana", "jaguar",
+                   "koala", "lion", "monkey", "newt", "otter", "panda", "quail", "rabbit", "snake", "tiger",
+                   "unicorn", "vulture", "wolf", "xerus", "yak", "zebra"]
+
     # Generate a random group tag for all jobs in this execution
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    group_tag = f"{random.choice(easy_words)}-{timestamp}"
+    group_tag = f"{random.choice(easy_words)}-{random.choice(easy_words2)}--{timestamp}"
     print(f"Using group tag: {group_tag} for all jobs in this execution")
 
     # Extract ticker from event
@@ -144,6 +182,34 @@ def handler(event, context):
                                                       "TaskType": "meta"})
 
 
+
+    # Create a parameters dictionary with all the relevant parameters
+    params = {
+        'ticker': ticker,
+        'from_date': from_date,
+        'to_date': to_date,
+        'short_atr_period': short_atr_period,
+        'long_atr_period': long_atr_period,
+        'alpha': alpha,
+        'polygon_job_id': polygon_job_id,
+        'enhance_job_id': enhance_job_id,
+        'group_tag': group_tag,
+        'timestamp': timestamp
+    }
+
+    # Upload parameters to the backtest params bucket
+    backtest_params_bucket = os.environ.get('MOCHI_PROD_BACKTEST_PARAMS')
+    if backtest_params_bucket:
+        try:
+            # Use group_tag as the file name
+            file_name = f"{group_tag}.json"
+            upload_params_to_s3(params, backtest_params_bucket, file_name)
+            print(f"Parameters uploaded to {backtest_params_bucket}/{file_name}")
+        except Exception as e:
+            print(f"Error uploading parameters to S3: {str(e)}")
+            # Continue execution even if upload fails
+    else:
+        print("MOCHI_PROD_BACKTEST_PARAMS environment variable not set, skipping parameter upload")
 
     return {'statusCode': 200, 'body': json.dumps(
         {'message': f'Successfully submitted job chain for {ticker}', 'polygonJobId': polygon_job_id,

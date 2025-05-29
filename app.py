@@ -33,7 +33,8 @@ compute_stack = MochiComputeStack(
     mochi_prod_trade_performance_graphs="mochi-prod-trade_performance_graphs",
     mochi_prod_final_trader_ranking="mochi-prod-final-trader-ranking",
     mochi_prod_ticker_meta="mochi-prod-ticker-meta",
-    mochi_prod_live_trades="mochi-prod-live-trades"
+    mochi_prod_live_trades="mochi-prod-live-trades",
+    mochi_prod_backtest_params="mochi-prod-backtest-params"
 )
 
 kubernetes_access_stack = KubernetesAccessStack(

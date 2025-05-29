@@ -27,6 +27,7 @@ class MochiComputeStack(Stack):
                  mochi_prod_final_trader_ranking: str = None,
                  mochi_prod_ticker_meta: str = None,
                  mochi_prod_live_trades: str = None,
+                 mochi_prod_backtest_params: str = None,
                  user_pool=None,
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -52,7 +53,8 @@ class MochiComputeStack(Stack):
                 "MOCHI_PROD_TRADE_PERFORMANCE_GRAPHS": mochi_prod_trade_performance_graphs or "",
                 "MOCHI_PROD_FINAL_TRADER_RANKING": mochi_prod_final_trader_ranking or "",
                 "MOCHI_PROD_TICKER_META": mochi_prod_ticker_meta or "",
-                "MOCHI_PROD_LIVE_TRADES": mochi_prod_live_trades or ""
+                "MOCHI_PROD_LIVE_TRADES": mochi_prod_live_trades or "",
+                "MOCHI_PROD_BACKTEST_PARAMS": mochi_prod_backtest_params or ""
             }
         )
 
@@ -81,6 +83,12 @@ class MochiComputeStack(Stack):
                 self, "ImportedOutputBucket", prepared_bucket_name
             )
             prepared_bucket.grant_read_write(lambda_function)
+
+        if mochi_prod_backtest_params:
+            backtest_params_bucket = s3.Bucket.from_bucket_name(
+                self, "ImportedBacktestParamsBucket", mochi_prod_backtest_params
+            )
+            backtest_params_bucket.grant_write(lambda_function)
 
 
         # Create API Gateway
