@@ -80,6 +80,34 @@ def handler(event, context):
     queue_name = "fargateSpotTrades"
     print(f"Using queue: {queue_name}")
 
+
+    # Create a parameters dictionary with all the relevant parameters
+    params = {
+        'ticker': ticker,
+        'from_date': from_date,
+        'to_date': to_date,
+        'short_atr_period': short_atr_period,
+        'long_atr_period': long_atr_period,
+        'alpha': alpha,
+        'group_tag': group_tag,
+        'timestamp': timestamp
+    }
+
+    # Upload parameters to the backtest params bucket
+    backtest_params_bucket = os.environ.get('MOCHI_PROD_BACKTEST_PARAMS')
+    if backtest_params_bucket:
+        try:
+            # Use group_tag as the file name
+            file_name = f"{group_tag}.json"
+            upload_params_to_s3(params, backtest_params_bucket, file_name)
+            print(f"Parameters uploaded to {backtest_params_bucket}/{file_name}")
+        except Exception as e:
+            print(f"Error uploading parameters to S3: {str(e)}")
+            # Continue execution even if upload fails
+    else:
+        print("MOCHI_PROD_BACKTEST_PARAMS environment variable not set, skipping parameter upload")
+
+
     # Step 1: Submit the polygon job (first in the chain)
     polygon_job_name = sanitize_job_name(f"polygon-job-{ticker}-{group_tag}")
     print(f"Submitting polygon job: {polygon_job_name}")
@@ -94,7 +122,7 @@ def handler(event, context):
                                                    parameters={'ticker': ticker, 'from_date': from_date,
                                                                'to_date': to_date}, containerOverrides={
                 'command': ["python", "src/main.py", "--tickers", ticker, "--s3_key_min", s3_key_min, "--s3_key_hour",
-                            s3_key_hour, "--s3_key_day", s3_key_day, "--from_date", from_date, "--to_date", to_date],
+                            s3_key_hour, "--s3_key_day", s3_key_day, "--from_date", from_date, "--to_date", to_date, "--back_test_id", group_tag],
                 'environment': [{"name": "POLYGON_API_KEY", "value": os.environ.get('POLYGON_API_KEY')},
                                 {'name': 'OUTPUT_BUCKET_NAME', 'value': os.environ.get('RAW_BUCKET_NAME')}]},
                                                    tags={"Ticker": ticker, "SubmissionGroupTag": group_tag,
@@ -126,13 +154,17 @@ def handler(event, context):
                                                                "--s3_key_hour", s3_key_hour, "--s3_key_day", s3_key_day,
                                                                "--short_atr_period", str(short_atr_period),
                                                                "--long_atr_period", str(long_atr_period),
-                                                               "--alpha", str(alpha)
+                                                               "--alpha", str(alpha),
+                                                               "--back_test_id", group_tag
                                                                ], 'environment': [
                                                        {'name': 'INPUT_BUCKET_NAME',
                                                         'value': os.environ.get('RAW_BUCKET_NAME')},
                                                        {'name': 'OUTPUT_BUCKET_NAME',
                                                         'value': os.environ.get('PREPARED_BUCKET_NAME')},
-                                                       {'name': 'AWS_REGION', 'value': 'eu-central-1'}, ]},
+                                                       {'name': 'AWS_REGION', 'value': 'eu-central-1'},
+                                                       {'name': 'MOCHI_PROD_BACKTEST_PARAMS', 'value': os.environ.get('MOCHI_PROD_BACKTEST_PARAMS')},
+
+                                                   ]},
                                                tags={"Ticker": ticker, "SubmissionGroupTag": group_tag,
                                                      "TaskType": "trade-data-enhancer"})
 
@@ -149,7 +181,7 @@ def handler(event, context):
     metadata_response = batch_client.submit_job(jobName=metadata_job_name, jobQueue=queue_name,
                                                 jobDefinition="data-metadata", dependsOn=[{'jobId': polygon_job_id}, {'jobId': enhance_job_id}],
                                                 containerOverrides={
-                                                    "command": ["--s3-key-min", s3_key_min, "--ticker", ticker, "--group-tag", group_tag
+                                                    "command": ["--s3-key-min", s3_key_min, "--ticker", ticker, "--group-tag", group_tag, "--back_test_id", group_tag
                                                                 ],
                                                     'environment': [
                                                                     {'name': 'AWS_REGION', 'value': 'eu-central-1'},
@@ -183,33 +215,6 @@ def handler(event, context):
 
 
 
-    # Create a parameters dictionary with all the relevant parameters
-    params = {
-        'ticker': ticker,
-        'from_date': from_date,
-        'to_date': to_date,
-        'short_atr_period': short_atr_period,
-        'long_atr_period': long_atr_period,
-        'alpha': alpha,
-        'polygon_job_id': polygon_job_id,
-        'enhance_job_id': enhance_job_id,
-        'group_tag': group_tag,
-        'timestamp': timestamp
-    }
-
-    # Upload parameters to the backtest params bucket
-    backtest_params_bucket = os.environ.get('MOCHI_PROD_BACKTEST_PARAMS')
-    if backtest_params_bucket:
-        try:
-            # Use group_tag as the file name
-            file_name = f"{group_tag}.json"
-            upload_params_to_s3(params, backtest_params_bucket, file_name)
-            print(f"Parameters uploaded to {backtest_params_bucket}/{file_name}")
-        except Exception as e:
-            print(f"Error uploading parameters to S3: {str(e)}")
-            # Continue execution even if upload fails
-    else:
-        print("MOCHI_PROD_BACKTEST_PARAMS environment variable not set, skipping parameter upload")
 
     return {'statusCode': 200, 'body': json.dumps(
         {'message': f'Successfully submitted job chain for {ticker}', 'polygonJobId': polygon_job_id,
