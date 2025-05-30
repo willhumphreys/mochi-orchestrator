@@ -29,12 +29,7 @@ def upload_params_to_s3(params, bucket_name, file_name):
         params_json = json.dumps(params, indent=2)
 
         # Upload the JSON to S3
-        s3_client.put_object(
-            Bucket=bucket_name,
-            Key=file_name,
-            Body=params_json,
-            ContentType='application/json'
-        )
+        s3_client.put_object(Bucket=bucket_name, Key=file_name, Body=params_json, ContentType='application/json')
 
         print(f"Successfully uploaded parameters to s3://{bucket_name}/{file_name}")
         return file_name
@@ -59,9 +54,9 @@ def handler(event, context):
                   "vanilla", "watermelon", "xigua", "yam", "zucchini"]
 
     # Second set of easy words for group tagging (animal theme)
-    easy_words2 = ["ant", "bear", "cat", "dog", "elephant", "fox", "giraffe", "hippo", "iguana", "jaguar",
-                   "koala", "lion", "monkey", "newt", "otter", "panda", "quail", "rabbit", "snake", "tiger",
-                   "unicorn", "vulture", "wolf", "xerus", "yak", "zebra"]
+    easy_words2 = ["ant", "bear", "cat", "dog", "elephant", "fox", "giraffe", "hippo", "iguana", "jaguar", "koala",
+                   "lion", "monkey", "newt", "otter", "panda", "quail", "rabbit", "snake", "tiger", "unicorn",
+                   "vulture", "wolf", "xerus", "yak", "zebra"]
 
     # Generate a random group tag for all jobs in this execution
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -80,18 +75,9 @@ def handler(event, context):
     queue_name = "fargateSpotTrades"
     print(f"Using queue: {queue_name}")
 
-
     # Create a parameters dictionary with all the relevant parameters
-    params = {
-        'ticker': ticker,
-        'from_date': from_date,
-        'to_date': to_date,
-        'short_atr_period': short_atr_period,
-        'long_atr_period': long_atr_period,
-        'alpha': alpha,
-        'group_tag': group_tag,
-        'timestamp': timestamp
-    }
+    params = {'ticker': ticker, 'from_date': from_date, 'to_date': to_date, 'short_atr_period': short_atr_period,
+        'long_atr_period': long_atr_period, 'alpha': alpha, 'group_tag': group_tag, 'timestamp': timestamp}
 
     # Upload parameters to the backtest params bucket
     backtest_params_bucket = os.environ.get('MOCHI_PROD_BACKTEST_PARAMS')
@@ -102,11 +88,9 @@ def handler(event, context):
             upload_params_to_s3(params, backtest_params_bucket, file_name)
             print(f"Parameters uploaded to {backtest_params_bucket}/{file_name}")
         except Exception as e:
-            print(f"Error uploading parameters to S3: {str(e)}")
-            # Continue execution even if upload fails
+            print(f"Error uploading parameters to S3: {str(e)}")  # Continue execution even if upload fails
     else:
         print("MOCHI_PROD_BACKTEST_PARAMS environment variable not set, skipping parameter upload")
-
 
     # Step 1: Submit the polygon job (first in the chain)
     polygon_job_name = sanitize_job_name(f"polygon-job-{ticker}-{group_tag}")
@@ -116,22 +100,20 @@ def handler(event, context):
 
     raw_data_bucket = os.environ.get('RAW_BUCKET_NAME')
 
-    if not do_all_s3_keys_exist(raw_data_bucket, keys_to_check):
-        polygon_response = batch_client.submit_job(jobName=polygon_job_name, jobQueue=queue_name,
-                                                   jobDefinition='polygon-extract',
-                                                   parameters={'ticker': ticker, 'from_date': from_date,
-                                                               'to_date': to_date}, containerOverrides={
-                'command': ["python", "src/main.py", "--tickers", ticker, "--s3_key_min", s3_key_min, "--s3_key_hour",
-                            s3_key_hour, "--s3_key_day", s3_key_day, "--from_date", from_date, "--to_date", to_date, "--back_test_id", group_tag],
-                'environment': [{"name": "POLYGON_API_KEY", "value": os.environ.get('POLYGON_API_KEY')},
-                                {'name': 'OUTPUT_BUCKET_NAME', 'value': os.environ.get('RAW_BUCKET_NAME')}]},
-                                                   tags={"Ticker": ticker, "SubmissionGroupTag": group_tag,
-                                                         "TaskType": "polygon-extract"})
+    polygon_response = batch_client.submit_job(jobName=polygon_job_name, jobQueue=queue_name,
+                                               jobDefinition='polygon-extract',
+                                               parameters={'ticker': ticker, 'from_date': from_date,
+                                                           'to_date': to_date}, containerOverrides={
+            'command': ["python", "src/main.py", "--tickers", ticker, "--s3_key_min", s3_key_min, "--s3_key_hour",
+                        s3_key_hour, "--s3_key_day", s3_key_day, "--from_date", from_date, "--to_date", to_date,
+                        "--back_test_id", group_tag],
+            'environment': [{"name": "POLYGON_API_KEY", "value": os.environ.get('POLYGON_API_KEY')},
+                            {'name': 'OUTPUT_BUCKET_NAME', 'value': os.environ.get('RAW_BUCKET_NAME')}]},
+                                               tags={"Ticker": ticker, "SubmissionGroupTag": group_tag,
+                                                     "TaskType": "polygon-extract"})
 
-        polygon_job_id = polygon_response['jobId']
-        print(f"Submitted polygon job with ID: {polygon_job_id}")
-    else:
-        print(f"All data files for {ticker} already exist. Skipping Polygon job.")
+    polygon_job_id = polygon_response['jobId']
+    print(f"Submitted polygon job with ID: {polygon_job_id}")
 
     dependencies = []
     if 'polygon_job_id' in locals():
@@ -139,8 +121,6 @@ def handler(event, context):
         dependencies.append({'jobId': polygon_job_id})
     else:
         polygon_job_id = "skipped"
-
-
 
     # Step 2: Submit the trade-data-enhancer job (dependent on polygon job)
     enhance_job_name = sanitize_job_name(f"trade-data-enhancer-{ticker}-{group_tag}")
@@ -153,24 +133,21 @@ def handler(event, context):
                                                                "--provider", "polygon", "--s3_key_min", s3_key_min,
                                                                "--s3_key_hour", s3_key_hour, "--s3_key_day", s3_key_day,
                                                                "--short_atr_period", str(short_atr_period),
-                                                               "--long_atr_period", str(long_atr_period),
-                                                               "--alpha", str(alpha),
-                                                               "--back_test_id", group_tag
-                                                               ], 'environment': [
-                                                       {'name': 'INPUT_BUCKET_NAME',
-                                                        'value': os.environ.get('RAW_BUCKET_NAME')},
+                                                               "--long_atr_period", str(long_atr_period), "--alpha",
+                                                               str(alpha), "--back_test_id", group_tag],
+                                                   'environment': [{'name': 'INPUT_BUCKET_NAME',
+                                                                    'value': os.environ.get('RAW_BUCKET_NAME')},
                                                        {'name': 'OUTPUT_BUCKET_NAME',
                                                         'value': os.environ.get('PREPARED_BUCKET_NAME')},
                                                        {'name': 'AWS_REGION', 'value': 'eu-central-1'},
-                                                       {'name': 'MOCHI_PROD_BACKTEST_PARAMS', 'value': os.environ.get('MOCHI_PROD_BACKTEST_PARAMS')},
+                                                       {'name': 'MOCHI_PROD_BACKTEST_PARAMS',
+                                                        'value': os.environ.get('MOCHI_PROD_BACKTEST_PARAMS')},
 
-                                                   ]},
-                                               tags={"Ticker": ticker, "SubmissionGroupTag": group_tag,
-                                                     "TaskType": "trade-data-enhancer"})
+                                                   ]}, tags={"Ticker": ticker, "SubmissionGroupTag": group_tag,
+                                                             "TaskType": "trade-data-enhancer"})
 
     enhance_job_id = enhance_response['jobId']
     print(f"Submitted trade-data-enhancer job with ID: {enhance_job_id}")
-
 
     # Step 1: Submit the polygon job (first in the chain)
     metadata_job_name = sanitize_job_name(f"metadata-job-{ticker}-{group_tag}")
@@ -179,47 +156,42 @@ def handler(event, context):
 
     # Submit the trades job (dependent on trade-data-enhancer-job)
     metadata_response = batch_client.submit_job(jobName=metadata_job_name, jobQueue=queue_name,
-                                                jobDefinition="data-metadata", dependsOn=[{'jobId': polygon_job_id}, {'jobId': enhance_job_id}],
+                                                jobDefinition="data-metadata",
+                                                dependsOn=[{'jobId': polygon_job_id}, {'jobId': enhance_job_id}],
                                                 containerOverrides={
-                                                    "command": ["--s3-key-min", s3_key_min, "--ticker", ticker, "--group-tag", group_tag, "--back_test_id", group_tag
-                                                                ],
-                                                    'environment': [
-                                                                    {'name': 'AWS_REGION', 'value': 'eu-central-1'},
-                                                                    {'name': 'S3_BUCKET',
-                                                                     'value': os.environ.get('RAW_BUCKET_NAME')},
-                                                                    {'name': 'S3_UPLOAD_BUCKET',
-                                                                     'value': os.environ.get('MOCHI_PROD_TICKER_META')},
-                                                                    {'name': 'MOCHI_DATA_BUCKET',
-                                                                     'value': os.environ.get('PREPARED_BUCKET_NAME')},
-                                                                    {'name': 'MOCHI_TRADES_BUCKET',
-                                                                     'value': os.environ.get('TRADES_BUCKET_NAME')},
-                                                                    {'name': 'MOCHI_TRADERS_BUCKET',
-                                                                     'value': os.environ.get('TRADER_BUCKET_NAME')},
-                                                                    {'name': 'S3_TICKER-META_BUCKET',
-                                                                     'value': os.environ.get('MOCHI_PROD_TICKER_META')},
-                                                                    {'name': 'MOCHI_AGGREGATION_BUCKET', 'value': os.environ.get('MOCHI_AGGREGATION_BUCKET')},
-                                                                    {'name': 'MOCHI_AGGREGATION_BUCKET_STAGING',
-                                                                        'value': os.environ.get('MOCHI_AGGREGATION_BUCKET_STAGING')},
+                                                    "command": ["--s3-key-min", s3_key_min, "--ticker", ticker,
+                                                                "--group-tag", group_tag, "--back_test_id", group_tag],
+                                                    'environment': [{'name': 'AWS_REGION', 'value': 'eu-central-1'},
+                                                        {'name': 'S3_BUCKET',
+                                                         'value': os.environ.get('RAW_BUCKET_NAME')},
+                                                        {'name': 'S3_UPLOAD_BUCKET',
+                                                         'value': os.environ.get('MOCHI_PROD_TICKER_META')},
+                                                        {'name': 'MOCHI_DATA_BUCKET',
+                                                         'value': os.environ.get('PREPARED_BUCKET_NAME')},
+                                                        {'name': 'MOCHI_TRADES_BUCKET',
+                                                         'value': os.environ.get('TRADES_BUCKET_NAME')},
+                                                        {'name': 'MOCHI_TRADERS_BUCKET',
+                                                         'value': os.environ.get('TRADER_BUCKET_NAME')},
+                                                        {'name': 'S3_TICKER-META_BUCKET',
+                                                         'value': os.environ.get('MOCHI_PROD_TICKER_META')},
+                                                        {'name': 'MOCHI_AGGREGATION_BUCKET',
+                                                         'value': os.environ.get('MOCHI_AGGREGATION_BUCKET')},
+                                                        {'name': 'MOCHI_AGGREGATION_BUCKET_STAGING',
+                                                         'value': os.environ.get('MOCHI_AGGREGATION_BUCKET_STAGING')},
 
-                                                                    {'name': 'MOCHI_GRAPHS_BUCKET', 'value': os.environ.get('MOCHI_GRAPHS_BUCKET')},
-                                                                    {'name': 'MOCHI_PROD_TRADE_EXTRACTS', 'value': os.environ.get('MOCHI_PROD_TRADE_EXTRACTS')}
+                                                        {'name': 'MOCHI_GRAPHS_BUCKET',
+                                                         'value': os.environ.get('MOCHI_GRAPHS_BUCKET')},
+                                                        {'name': 'MOCHI_PROD_TRADE_EXTRACTS',
+                                                         'value': os.environ.get('MOCHI_PROD_TRADE_EXTRACTS')}
 
-
-
-                                                                    ]},
-
-
+                                                    ]},
 
                                                 tags={"Symbol": ticker, "SubmissionGroupTag": group_tag,
                                                       "TaskType": "meta"})
 
-
-
-
     return {'statusCode': 200, 'body': json.dumps(
         {'message': f'Successfully submitted job chain for {ticker}', 'polygonJobId': polygon_job_id,
          'enhanceJobId': enhance_job_id, 'groupTag': group_tag})}
-
 
 
 def extract_arguments_from_event(event):
@@ -270,6 +242,7 @@ def extract_arguments_from_event(event):
     except Exception as e:
         print(f"Error extracting arguments from event body: {str(e)}")
         raise ValueError("Could not extract arguments from event body")
+
 
 def sanitize_job_name(name):
     """
