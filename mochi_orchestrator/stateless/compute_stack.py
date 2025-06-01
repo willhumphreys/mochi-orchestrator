@@ -99,7 +99,11 @@ class MochiComputeStack(Stack):
             description="API for triggering backtest processes with ticker data",
             # Enable CORS at the API level
             default_cors_preflight_options = apigateway.CorsOptions(
-                allow_origins=['*'],  # Allow any origin
+                allow_origins=[
+                    'https://master.d37eokvg7j9het.amplifyapp.com',
+                    'https://dashboard.minoko.life',
+                    'http://localhost:5173'
+                ],  # Specific allowed origins
                 allow_methods=['POST', 'OPTIONS'],
                 allow_headers=[
                     'Content-Type',
@@ -108,7 +112,7 @@ class MochiComputeStack(Stack):
                     'X-Api-Key',
                     'X-Amz-Security-Token',
                 ],
-                allow_credentials=False,  # Must be False when using wildcard origins
+                allow_credentials=True,  # Can be True when using specific origins
                 max_age=Duration.seconds(300),  # How long the browser should cache preflight request results
             )
 
