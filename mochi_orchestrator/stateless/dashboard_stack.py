@@ -70,15 +70,11 @@ class MochiDashboardStack(Stack):
                 ),
                 scopes=[cognito.OAuthScope.EMAIL, cognito.OAuthScope.OPENID, cognito.OAuthScope.PROFILE],
                 callback_urls=[
-                    "https://master.d37eokvg7j9het.amplifyapp.com",  # Your Amplify app URL
-                    "https://master.d37eokvg7j9het.amplifyapp.com/",  # With trailing slash
                     "https://dashboard.minoko.life",  # Custom domain
                     "https://dashboard.minoko.life/",  # Custom domain with trailing slash
                     "http://localhost:5173"  # For Vite local development (default port)
                 ],
                 logout_urls=[
-                    "https://master.d37eokvg7j9het.amplifyapp.com",  # Your Amplify app URL
-                    "https://master.d37eokvg7j9het.amplifyapp.com/",  # With trailing slash
                     "https://dashboard.minoko.life",  # Custom domain
                     "https://dashboard.minoko.life/",  # Custom domain with trailing slash
                     "http://localhost:5173"  # For Vite local development (default port)
@@ -266,7 +262,7 @@ class MochiDashboardStack(Stack):
         # Output the full hosted UI URLs
         CfnOutput(
             self, "HostedUISignInURL",
-            value=f"https://{domain.domain_name}/login?client_id={client.user_pool_client_id}&response_type=code&scope=email+openid+profile&redirect_uri=https://master.d37eokvg7j9het.amplifyapp.com",
+            value=f"https://{domain.domain_name}/login?client_id={client.user_pool_client_id}&response_type=code&scope=email+openid+profile&redirect_uri=https://dashboard.minoko.life",
             description="URL for Cognito Hosted UI Sign-in (Amplify app)"
         )
 
