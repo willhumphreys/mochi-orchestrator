@@ -67,9 +67,9 @@ def handler(event, context):
     ticker, from_date, to_date, short_atr_period, long_atr_period, alpha = extract_arguments_from_event(event)
     print(f"Processing ticker: {ticker} {from_date} {to_date} {short_atr_period} {long_atr_period} {alpha}")
 
-    s3_key_min = generate_s3_path(ticker, "stocks", "polygon", timeframe="min")
-    s3_key_hour = generate_s3_path(ticker, "stocks", "polygon", timeframe="hour")
-    s3_key_day = generate_s3_path(ticker, "stocks", "polygon", timeframe="day")
+    s3_key_min = generate_s3_path(ticker, "stocks", "polygon", timeframe="min", group_tag=group_tag)
+    s3_key_hour = generate_s3_path(ticker, "stocks", "polygon", timeframe="hour", group_tag=group_tag)
+    s3_key_day = generate_s3_path(ticker, "stocks", "polygon", timeframe="day", group_tag=group_tag)
 
     # Common job queue
     queue_name = "fargateSpotTrades"
