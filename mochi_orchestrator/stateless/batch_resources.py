@@ -5,7 +5,8 @@ from aws_cdk import (
     aws_batch as batch,
     aws_ec2 as ec2,
     aws_iam as iam,
-    CfnOutput
+    CfnOutput,
+    Fn
 )
 from constructs import Construct
 from typing import Optional
@@ -240,7 +241,7 @@ class MochiBatchResources(Construct):
 
         # Output the VPC ID and other useful information
         CfnOutput(self, "VpcId", value=vpc.vpc_id)
-        CfnOutput(self, "SubnetIds", value=",".join(vpc.select_subnets(subnet_type=ec2.SubnetType.PUBLIC).subnet_ids))
+        CfnOutput(self, "SubnetIds", value=Fn.join(",", vpc.select_subnets(subnet_type=ec2.SubnetType.PUBLIC).subnet_ids))
         CfnOutput(self, "SecurityGroupId", value=security_group.security_group_id)
         CfnOutput(self, "JobQueueArn", value=self.batch_job_queue.ref)
         CfnOutput(self, "ComputeEnvironmentArn", value=self.batch_compute_env.ref)
