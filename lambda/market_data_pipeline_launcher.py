@@ -160,7 +160,7 @@ def handler(event, context):
                                                 dependsOn=[{'jobId': polygon_job_id}, {'jobId': enhance_job_id}],
                                                 containerOverrides={
                                                     "command": ["--s3-key-min", s3_key_min, "--ticker", ticker,
-                                                                "--group-tag", group_tag, "--back_test_id", group_tag],
+                                                                "--group-tag", group_tag, "--back-test-id", group_tag],
                                                     'environment': [{'name': 'AWS_REGION', 'value': 'eu-central-1'},
                                                         {'name': 'S3_BUCKET',
                                                          'value': os.environ.get('RAW_BUCKET_NAME')},
