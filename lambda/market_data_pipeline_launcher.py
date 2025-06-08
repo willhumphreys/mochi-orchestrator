@@ -64,8 +64,9 @@ def handler(event, context):
     print(f"Using group tag: {group_tag} for all jobs in this execution")
 
     # Extract ticker from event
-    ticker, from_date, to_date, short_atr_period, long_atr_period, alpha = extract_arguments_from_event(event)
+    ticker, from_date, to_date, short_atr_period, long_atr_period, alpha, trade_duration, trade_timeout = extract_arguments_from_event(event)
     print(f"Processing ticker: {ticker} {from_date} {to_date} {short_atr_period} {long_atr_period} {alpha}")
+    print(f"Trade duration: {trade_duration} hours, Trade timeout: {trade_timeout} hours")
 
     s3_key_min = generate_s3_path(ticker, "polygon", timeframe="min", group_tag=group_tag)
     s3_key_hour = generate_s3_path(ticker, "polygon", timeframe="hour", group_tag=group_tag)
@@ -77,7 +78,8 @@ def handler(event, context):
 
     # Create a parameters dictionary with all the relevant parameters
     params = {'ticker': ticker, 'from_date': from_date, 'to_date': to_date, 'short_atr_period': short_atr_period,
-        'long_atr_period': long_atr_period, 'alpha': alpha, 'group_tag': group_tag, 'timestamp': timestamp}
+        'long_atr_period': long_atr_period, 'alpha': alpha, 'trade_duration': trade_duration, 
+        'trade_timeout': trade_timeout, 'group_tag': group_tag, 'timestamp': timestamp}
 
     # Upload parameters to the backtest params bucket
     backtest_params_bucket = os.environ.get('MOCHI_PROD_BACKTEST_PARAMS')
@@ -160,7 +162,9 @@ def handler(event, context):
                                                 dependsOn=[{'jobId': polygon_job_id}, {'jobId': enhance_job_id}],
                                                 containerOverrides={
                                                     "command": ["--s3-key-min", s3_key_min, "--ticker", ticker,
-                                                                "--group-tag", group_tag, "--back-test-id", group_tag],
+                                                                "--group-tag", group_tag, "--back-test-id", group_tag,
+                                                                "--trade-duration", str(trade_duration),
+                                                                "--trade-timeout", str(trade_timeout)],
                                                     'environment': [{'name': 'AWS_REGION', 'value': 'eu-central-1'},
                                                         {'name': 'S3_BUCKET',
                                                          'value': os.environ.get('RAW_BUCKET_NAME')},
@@ -238,7 +242,22 @@ def extract_arguments_from_event(event):
         else:
             raise ValueError("No alpha field found in request body")
 
-        return ticker, from_date, to_date, short_atr_period, long_atr_period, alpha
+        # Extract trade duration and timeout
+        if 'tradeDuration' in body:
+            trade_duration = body['tradeDuration']
+        else:
+            # Default to 24 hours if not provided
+            trade_duration = 24
+            print("No tradeDuration field found in request body, using default value of 24 hours")
+
+        if 'tradeTimeout' in body:
+            trade_timeout = body['tradeTimeout']
+        else:
+            # Default to 4 hours if not provided
+            trade_timeout = 4
+            print("No tradeTimeout field found in request body, using default value of 4 hours")
+
+        return ticker, from_date, to_date, short_atr_period, long_atr_period, alpha, trade_duration, trade_timeout
     except Exception as e:
         print(f"Error extracting arguments from event body: {str(e)}")
         raise ValueError("Could not extract arguments from event body")
